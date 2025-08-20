@@ -186,10 +186,11 @@ void ddpg_train(DDPG *ddpg, double gamma)
     }
 
     /* Process the proposed actions through the critic. */
-    mlp_feedforward(ddpg->critic, ddpg->criticInput);
+    Matrix criticOutput = mlp_feedforward(ddpg->critic, ddpg->criticInput);
 
     /* Back-propagate the negative gradient through the critic. */
-    matrix_fill(ddpg->criticErrors, -1);
+    for (int i = 0; i < ddpg->batchSize; i++)
+        MATRIX(ddpg->criticErrors, i, 0) = MATRIX(criticOutput, i, 0) - MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize));
     mlp_backpropagate(ddpg->critic, ddpg->criticErrors, LOSS_NONE);
 
     /* Get the critic errors of the first layer and extract only those that correspond to actions. */
@@ -212,7 +213,7 @@ void ddpg_train(DDPG *ddpg, double gamma)
         ddpg_data_copy(&MATRIX(ddpg->criticInput, i, ddpg->actionSize), &MATRIX(ddpg->memory, ddpg->batchIndices[i], 0), ddpg->stateSize);
     }
 
-    Matrix criticOutput = mlp_feedforward(ddpg->critic, ddpg->criticInput);
+    criticOutput = mlp_feedforward(ddpg->critic, ddpg->criticInput);
 
     /* Feed the next state batch to the target actor. */
     for (int i = 0; i < ddpg->batchSize; i++)
