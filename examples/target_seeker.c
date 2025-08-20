@@ -60,7 +60,7 @@ const char* g_action_str[ACTION_SIZE] = {"UP", "DOWN", "IDLE"};
 
 int is_action_correct(double* state, double* action)
 {
-    double diff = fabs(state[0] - state[1]);
+    double diff = state[0] - state[1];
 
     int target_index = vector_largest_index(action, ACTION_SIZE);
 
@@ -94,15 +94,20 @@ void state_step(double* state, double* action, double* reward)
     else if (target_index == ACTION_DOWN)
         state[0] = state[0] - STEP_CONTROL;
 
+    if (state[0] < 0)
+        state[0] = 0;
+    else if (state[0] > 1)
+        state[0] = 1;
+
     reward[0] = -cost;
 
     if (is_action_correct(state, action))
-        reward[1] += .1;
+        reward[1] += .01;
     else
-        reward[1] -= .1;
+        reward[1] -= .01;
 
-    if (reward[1] > 1)
-        reward[1] = 1;
+    if (reward[1] > 0)
+        reward[1] = 0;
     else if (reward[1] < -1)
         reward[1] = -1;
 }
