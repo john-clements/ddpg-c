@@ -14,6 +14,8 @@
 
 #define STEP_CONTROL    .025
 
+#define MEASURE_QUALITY_START 25
+
 int vector_largest_index(double* vector, int vector_size)
 {
     int     max_index   = 0;
@@ -127,6 +129,8 @@ int main()
     double  reward[REWARD_SIZE] = {0};
     double* action              = NULL;
 
+    double  reward_quality[REWARD_SIZE] = {0};
+
     ddpg_init();
 
     DDPG *ddpg = ddpg_create(STATE_SIZE, ACTION_SIZE, NULL, LAYER_SIZE, layers, LAYER_SIZE, layers, 100000, 32, REWARD_SIZE);
@@ -143,7 +147,6 @@ int main()
         for (int step = 0; step < EPISODE_LENGTH; step++)
         {
             action = ddpg_action(ddpg, state);
-
 
             printf("%d:%d -> ", episode, step);
             print_double_vector(reward, REWARD_SIZE);
@@ -174,9 +177,19 @@ int main()
         printf("%d -> ", episode);
         print_double_vector(episode_reward, REWARD_SIZE);
         printf("\n");
+
+        if (episode >= EPISODE_COUNT - MEASURE_QUALITY_START)
+        {
+            for (int i = 0; i < REWARD_SIZE; i++)
+                reward_quality[i] = reward_quality[i] + episode_reward[i]/EPISODE_COUNT;
+        }
     }
 
     ddpg_destroy(ddpg);
+
+    printf("Final Reward Quality -> ");
+    print_double_vector(reward_quality, REWARD_SIZE);
+    printf("\n");
 
     return 0;
 }
