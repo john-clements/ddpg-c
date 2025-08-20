@@ -18,7 +18,8 @@ DDPG *ddpg_create(
     int criticDepth,
     int *criticLayers,
     int memorySize,
-    int batchSize)
+    int batchSize,
+    int rewardSize)
 {
     DDPG *ddpg = malloc(sizeof(DDPG));
     ddpg->stateSize = stateSize;
@@ -38,7 +39,7 @@ DDPG *ddpg_create(
     
     /* The MLPC library is used to construct the actor and the critic. */
     ddpg->actor = mlp_create(stateSize, actionSize, actorDepth, actorLayers, ACTIVATION_RELU, ACTIVATION_TANH, batchSize);
-    ddpg->critic = mlp_create(actionSize + stateSize, 1, criticDepth, criticLayers, ACTIVATION_RELU, ACTIVATION_LINEAR, batchSize);
+    ddpg->critic = mlp_create(actionSize + stateSize, rewardSize, criticDepth, criticLayers, ACTIVATION_RELU, ACTIVATION_LINEAR, batchSize);
     ddpg->actorTarget = mlp_clone(ddpg->actor);
     ddpg->criticTarget = mlp_clone(ddpg->critic);
 
@@ -50,14 +51,14 @@ DDPG *ddpg_create(
     ddpg->actorInput = matrix_create(batchSize, stateSize);
     ddpg->criticInput = matrix_create(batchSize, actionSize + stateSize);
     ddpg->actorErrors = matrix_create(batchSize, actionSize);
-    ddpg->criticErrors = matrix_create(batchSize, 1);
+    ddpg->criticErrors = matrix_create(batchSize, rewardSize);
 
     /* Initialize batch capacity. */
     ddpg->batchSize = batchSize;
     ddpg->batchIndices = malloc(batchSize * sizeof(int));
 
     /* The memory stores the current state, action, reward, next state, and the terminal flag. */
-    ddpg->memory = matrix_create(memorySize, actionSize + 2 * stateSize + 2);
+    ddpg->memory = matrix_create(memorySize, actionSize + 2 * stateSize + rewardSize + 1);
     ddpg->memorySize = memorySize;  
     ddpg->memoryUsed = 0;
     ddpg->memoryIdx = 0;
@@ -65,6 +66,8 @@ DDPG *ddpg_create(
     /* Last observed state. */
     ddpg->lastState = malloc(ddpg->stateSize * sizeof(double));
     ddpg->lastStateValid = 0;
+
+    ddpg->rewardSize = rewardSize;
 
     return ddpg;
 }
@@ -103,7 +106,7 @@ void ddpg_data_copy(double *dst, double *src, int length)
         *(dst++) = *(src++);
 }
 
-void ddpg_observe(DDPG *ddpg, double *action, double reward, double *state, int terminal)
+void ddpg_observe(DDPG *ddpg, double *action, double* reward, double *state, int terminal)
 {
     /* If no state has yet been observed, just store the state. */
     if (!ddpg->lastStateValid)
@@ -117,8 +120,8 @@ void ddpg_observe(DDPG *ddpg, double *action, double reward, double *state, int 
     int col = 0;
     ddpg_data_copy(&MATRIX(ddpg->memory, ddpg->memoryIdx, 0), ddpg->lastState, ddpg->stateSize);
     ddpg_data_copy(&MATRIX(ddpg->memory, ddpg->memoryIdx, (col += ddpg->stateSize)), action, ddpg->actionSize);
-    MATRIX(ddpg->memory, ddpg->memoryIdx, (col += ddpg->actionSize)) = reward;
-    ddpg_data_copy(&MATRIX(ddpg->memory, ddpg->memoryIdx, (col += 1)), state, ddpg->stateSize);
+    ddpg_data_copy(&MATRIX(ddpg->memory, ddpg->memoryIdx, (col += ddpg->actionSize)), reward, ddpg->rewardSize);
+    ddpg_data_copy(&MATRIX(ddpg->memory, ddpg->memoryIdx, (col += ddpg->rewardSize)), state, ddpg->stateSize);
     MATRIX(ddpg->memory, ddpg->memoryIdx, (col + ddpg->stateSize)) = (terminal > 0 ? 1.0 : 0.0);
 
     /* Store the given state as the last observed state. */
@@ -190,7 +193,12 @@ void ddpg_train(DDPG *ddpg, double gamma)
 
     /* Back-propagate the negative gradient through the critic. */
     for (int i = 0; i < ddpg->batchSize; i++)
-        MATRIX(ddpg->criticErrors, i, 0) = MATRIX(criticOutput, i, 0) - MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize));
+    {
+        for (int j = 0; j < ddpg->rewardSize; j++)
+        {
+            MATRIX(ddpg->criticErrors, i, j) = MATRIX(criticOutput, i, j) - MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + j));
+        }
+    }
     mlp_backpropagate(ddpg->critic, ddpg->criticErrors, LOSS_NONE);
 
     /* Get the critic errors of the first layer and extract only those that correspond to actions. */
@@ -217,7 +225,7 @@ void ddpg_train(DDPG *ddpg, double gamma)
 
     /* Feed the next state batch to the target actor. */
     for (int i = 0; i < ddpg->batchSize; i++)
-        ddpg_data_copy(&MATRIX(ddpg->actorInput, i, 0), &MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + 1)), ddpg->stateSize);
+        ddpg_data_copy(&MATRIX(ddpg->actorInput, i, 0), &MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + ddpg->rewardSize)), ddpg->stateSize);
     
     Matrix actorTargetOutput = mlp_feedforward(ddpg->actorTarget, ddpg->actorInput);
 
@@ -225,7 +233,7 @@ void ddpg_train(DDPG *ddpg, double gamma)
     for (int i = 0; i < ddpg->batchSize; i++)
     {
         ddpg_data_copy(&MATRIX(ddpg->criticInput, i, 0), &MATRIX(actorTargetOutput, i, 0), ddpg->actionSize);
-        ddpg_data_copy(&MATRIX(ddpg->criticInput, i, ddpg->actionSize), &MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + 1)), ddpg->stateSize);
+        ddpg_data_copy(&MATRIX(ddpg->criticInput, i, ddpg->actionSize), &MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + ddpg->rewardSize)), ddpg->stateSize);
     }
 
     Matrix CriticTargetOutput = mlp_feedforward(ddpg->criticTarget, ddpg->criticInput);
@@ -233,13 +241,17 @@ void ddpg_train(DDPG *ddpg, double gamma)
     /* Compute the critic errors using the Bellman equation. */
     for (int i = 0; i < ddpg->batchSize; i++)
     {
-        double reward = MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize));
-        double terminal = MATRIX(ddpg->memory, ddpg->batchIndices[i], (2 * ddpg->stateSize + ddpg->actionSize + 1));
+        double terminal = MATRIX(ddpg->memory, ddpg->batchIndices[i], (2 * ddpg->stateSize + ddpg->actionSize + ddpg->rewardSize));
 
-        if (terminal > 0)
-            MATRIX(ddpg->criticErrors, i, 0) = MATRIX(criticOutput, i, 0);
-        else
-            MATRIX(ddpg->criticErrors, i, 0) = MATRIX(criticOutput, i, 0) - (reward + gamma * MATRIX(CriticTargetOutput, i, 0));
+        for (int j = 0; j < ddpg->rewardSize; j++)
+        {
+            double reward = MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + j));
+
+            if (terminal > 0)
+                MATRIX(ddpg->criticErrors, i, j) = MATRIX(criticOutput, i, j);
+            else
+                MATRIX(ddpg->criticErrors, i, j) = MATRIX(criticOutput, i, j) - (reward + gamma * MATRIX(CriticTargetOutput, i, j));
+        }
     }
 
     /* Backpropagate critic errors. */

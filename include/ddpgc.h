@@ -28,10 +28,11 @@ DDPG *ddpg_create(
     int criticDepth,
     int *criticLayers,
     int memorySize,
-    int batchSize);
+    int batchSize,
+    int rewardSize);
 
 void ddpg_destroy(DDPG *ddpg);
-void ddpg_observe(DDPG *ddpg, double *action, double reward, double *state, int terminal);
+void ddpg_observe(DDPG *ddpg, double *action, double* reward, double *state, int terminal);
 double *ddpg_action(DDPG *ddpg, double *state);
 void ddpg_train(DDPG *ddpg, double gamma);
 void ddpg_update_target_networks(DDPG *ddpg);

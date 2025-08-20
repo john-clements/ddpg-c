@@ -142,6 +142,8 @@ typedef struct DDPG
      * observation has been made.
      */
     int lastStateValid;
+
+    int rewardSize;
 } DDPG;
 
 /**
@@ -187,7 +189,8 @@ DDPG *ddpg_create(
     int criticDepth,
     int *criticLayers,
     int memorySize,
-    int batchSize);
+    int batchSize,
+    int rewardSize);
 
 /**
  * Frees the memory allocated on the heap by the given DDPG. After being
@@ -215,7 +218,7 @@ void ddpg_destroy(DDPG *ddpg);
  * The flag that determines whether this observation is the last one in the
  * current episode. It is set to 1 if it is the terminal state, otherwise to 0.
  */
-void ddpg_observe(DDPG *ddpg, double *action, double reward, double *state, int terminal);
+void ddpg_observe(DDPG *ddpg, double *action, double* reward, double *state, int terminal);
 
 /**
  * Returns the action that the given `ddpg` proposes to execute in the given

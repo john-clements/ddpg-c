@@ -83,7 +83,7 @@ int main()
     */
     int layers[2] = {128, 64};
     double noise[1] = {0.01};
-    DDPG *ddpg = ddpg_create(2, 1, noise, 2, layers, 2, layers, 100000, 32);
+    DDPG *ddpg = ddpg_create(2, 1, noise, 2, layers, 2, layers, 100000, 32, 1);
 
     /* Try to load the pre-trained model. */
     if (ddpg_load_policy(ddpg, "pendulum.ddpg") == 0)
@@ -125,7 +125,7 @@ int main()
                any state as terminal, because this domain ends the episodes
                in arbitrary states, and not in fail states or states that
                can actually have no consequent states. */
-            ddpg_observe(ddpg, action, reward, state, 0);
+            ddpg_observe(ddpg, action, &reward, state, 0);
             
             /* If we are not in the exploration phase, train the DDPG. */
             if (episode >= STARTING_EPISODES)
