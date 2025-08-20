@@ -7,7 +7,7 @@
 #define EPISODE_COUNT   100
 
 #define STATE_SIZE      2
-#define ACTION_SIZE     3
+#define ACTION_SIZE     1
 #define REWARD_SIZE     2
 
 #define LAYER_SIZE      2
@@ -64,14 +64,23 @@ const char* g_action_str[PARSED_OUTPUTS] = {"UP", "DOWN", "IDLE"};
 
 int get_action_index(double* action)
 {
-    return vector_largest_index(action, ACTION_SIZE);
-/*
-    if (*action > 0.25)
+    // Binary parsing
+    //return vector_largest_index(action, ACTION_SIZE);
+
+    // Custom Binary + continuous
+    //if (action[0] <= 0 && action[1] <= 0)
+    //    return ACTION_IDLE;
+    //return vector_largest_index(action, ACTION_SIZE);
+
+
+    // Trinary parsing
+
+    if (*action > 0.1)
         return ACTION_UP;
-    else if (*action < -0.25)
+    else if (*action < -0.1)
         return ACTION_DOWN;
 
-    return ACTION_IDLE;*/
+    return ACTION_IDLE;
 }
 
 int is_action_correct(double* state, double* action)
@@ -138,7 +147,7 @@ void print_double_vector(double* vector, int vector_size)
 
 int main()
 {
-    int     layers[LAYER_SIZE]  = {20, 20};
+    int     layers[LAYER_SIZE]  = {40, 20};
     double  state[STATE_SIZE]   = {0};
     double  reward[REWARD_SIZE] = {0};
     double* action              = NULL;
