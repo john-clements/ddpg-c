@@ -16,6 +16,8 @@
 
 #define MEASURE_QUALITY_START 25
 
+#define PARSED_OUTPUTS  3
+
 int vector_largest_index(double* vector, int vector_size)
 {
     int     max_index   = 0;
@@ -58,13 +60,25 @@ double double_constrain(float val)
 #define ACTION_DOWN 1
 #define ACTION_IDLE 2
 
-const char* g_action_str[ACTION_SIZE] = {"UP", "DOWN", "IDLE"};
+const char* g_action_str[PARSED_OUTPUTS] = {"UP", "DOWN", "IDLE"};
+
+int get_action_index(double* action)
+{
+    return vector_largest_index(action, ACTION_SIZE);
+/*
+    if (*action > 0.25)
+        return ACTION_UP;
+    else if (*action < -0.25)
+        return ACTION_DOWN;
+
+    return ACTION_IDLE;*/
+}
 
 int is_action_correct(double* state, double* action)
 {
     double diff = state[0] - state[1];
 
-    int target_index = vector_largest_index(action, ACTION_SIZE);
+    int target_index = get_action_index(action);
 
     if (target_index == ACTION_UP)
     {
@@ -89,7 +103,7 @@ void state_step(double* state, double* action, double* reward)
 {
     double cost = fabs(state[0] - state[1]);
 
-    int target_index = vector_largest_index(action, ACTION_SIZE);
+    int target_index = get_action_index(action);
 
     if (target_index == ACTION_UP)
         state[0] = state[0] + STEP_CONTROL;
@@ -124,7 +138,7 @@ void print_double_vector(double* vector, int vector_size)
 
 int main()
 {
-    int     layers[LAYER_SIZE]  = {128, 64};
+    int     layers[LAYER_SIZE]  = {20, 20};
     double  state[STATE_SIZE]   = {0};
     double  reward[REWARD_SIZE] = {0};
     double* action              = NULL;
@@ -155,9 +169,9 @@ int main()
             printf(" -> ");
             print_double_vector(action, ACTION_SIZE);
             if (is_action_correct(state, action))
-                printf(" -> \e[1;32m%s\e[0m\n", g_action_str[vector_largest_index(action, ACTION_SIZE)]);
+                printf(" -> \e[1;32m%s\e[0m\n", g_action_str[get_action_index(action)]);
             else
-                printf(" -> \e[1;31m%s\e[0m\n", g_action_str[vector_largest_index(action, ACTION_SIZE)]);
+                printf(" -> \e[1;31m%s\e[0m\n", g_action_str[get_action_index(action)]);
 
             state_step(state, action, reward);
 
