@@ -6,9 +6,11 @@
 #define EPISODE_LENGTH  200
 #define EPISODE_COUNT   100
 
-#define STATE_SIZE      2
-#define ACTION_SIZE     1
-#define REWARD_SIZE     2
+#define TARGET_CNT      3
+
+#define STATE_SIZE      (2*TARGET_CNT)
+#define ACTION_SIZE     (1*TARGET_CNT)
+#define REWARD_SIZE     1
 
 #define LAYER_SIZE      2
 
@@ -17,6 +19,20 @@
 #define MEASURE_QUALITY_START 25
 
 #define PARSED_OUTPUTS  3
+
+#define COLOR_NORMAL    "\033[0m"
+#define COLOR_RED       "\033[0;31m"
+#define COLOR_GREEN     "\033[0;32m"
+
+#define COLOR_ID_NORMAL 0
+#define COLOR_ID_RED    1
+#define COLOR_ID_GREEN  2
+
+const char* g_color_map[] = {
+    COLOR_NORMAL,
+    COLOR_RED,
+    COLOR_GREEN,
+};
 
 int vector_largest_index(double* vector, int vector_size)
 {
@@ -62,7 +78,7 @@ double double_constrain(float val)
 
 const char* g_action_str[PARSED_OUTPUTS] = {"UP", "DOWN", "IDLE"};
 
-int get_action_index(double* action)
+int get_action_index(double action)
 {
     // Binary parsing
     //return vector_largest_index(action, ACTION_SIZE);
@@ -75,15 +91,15 @@ int get_action_index(double* action)
 
     // Trinary parsing
 
-    if (*action > 0.1)
+    if (action > 0.1)
         return ACTION_UP;
-    else if (*action < -0.1)
+    else if (action < -0.1)
         return ACTION_DOWN;
 
     return ACTION_IDLE;
 }
 
-int is_action_correct(double* state, double* action)
+int is_action_correct(double* state, double action)
 {
     double diff = state[0] - state[1];
 
@@ -108,10 +124,8 @@ int is_action_correct(double* state, double* action)
     return 0;
 }
 
-void state_step(double* state, double* action, double* reward)
+double state_step(double* state, double action)
 {
-    double cost = fabs(state[0] - state[1]);
-
     int target_index = get_action_index(action);
 
     if (target_index == ACTION_UP)
@@ -124,17 +138,7 @@ void state_step(double* state, double* action, double* reward)
     else if (state[0] > 1)
         state[0] = 1;
 
-    reward[0] = -cost;
-
-    if (is_action_correct(state, action))
-        reward[1] += .01;
-    else
-        reward[1] -= .01;
-
-    if (reward[1] > 0)
-        reward[1] = 0;
-    else if (reward[1] < -1)
-        reward[1] = -1;
+    return -fabs(state[0] - state[1]);
 }
 
 void print_double_vector(double* vector, int vector_size)
@@ -145,14 +149,25 @@ void print_double_vector(double* vector, int vector_size)
     printf("%f]", vector[vector_size - 1]);
 }
 
+void print_double_vector_highlight(double* vector, int vector_size, int* highlight_vector)
+{
+    int i = 0;
+    printf("[");
+    for (i = 0; i < vector_size - 1; i++)
+        printf("%s%.2f, "COLOR_NORMAL, g_color_map[highlight_vector[i]], vector[i]);
+
+    printf("%s%.2f"COLOR_NORMAL"]", g_color_map[highlight_vector[i]], vector[i]);
+}
+
 int main()
 {
-    int     layers[LAYER_SIZE]  = {40, 20};
+    int     layers[LAYER_SIZE]  = {40, 40};
     double  state[STATE_SIZE]   = {0};
     double  reward[REWARD_SIZE] = {0};
     double* action              = NULL;
 
-    double  reward_quality[REWARD_SIZE] = {0};
+    double  reward_quality[REWARD_SIZE]     = {0};
+    int     highlight_vector[STATE_SIZE]    = {0};
 
     ddpg_init();
 
@@ -162,8 +177,11 @@ int main()
     {
         double episode_reward[REWARD_SIZE] = {0};
 
-        state[0] = double_constrain(deepc_random_double(0, 1));
-        state[1] = double_constrain(deepc_random_double(0, 1));
+        for (int i = 0; i < TARGET_CNT; i++)
+        {
+            state[2*i]      = .5;
+            state[2*i + 1]  = double_constrain(deepc_random_double(0, 1));
+        }
 
         ddpg_new_episode(ddpg);
 
@@ -171,18 +189,10 @@ int main()
         {
             action = ddpg_action(ddpg, state);
 
-            printf("%d:%d -> ", episode, step);
-            print_double_vector(reward, REWARD_SIZE);
-            printf(" -> ");
-            print_double_vector(state, STATE_SIZE);
-            printf(" -> ");
-            print_double_vector(action, ACTION_SIZE);
-            if (is_action_correct(state, action))
-                printf(" -> \e[1;32m%s\e[0m\n", g_action_str[get_action_index(action)]);
-            else
-                printf(" -> \e[1;31m%s\e[0m\n", g_action_str[get_action_index(action)]);
-
-            state_step(state, action, reward);
+            *reward = 0;
+            for (int i = 0; i < TARGET_CNT; i++)
+                *reward = *reward + state_step(&state[i*2], action[i]);
+            *reward = *reward / TARGET_CNT;
 
             for (int i = 0; i < REWARD_SIZE; i++)
                 episode_reward[i] += reward[i];
@@ -190,6 +200,22 @@ int main()
             ddpg_observe(ddpg, action, reward, state, 0);
 
             ddpg_train(ddpg, 0.99);
+
+            for (int i = 0; i < TARGET_CNT; i++)
+            {
+                if (is_action_correct(&state[i*2], action[i]))
+                    highlight_vector[i*2] = COLOR_ID_GREEN;
+                else
+                    highlight_vector[i*2] = COLOR_ID_RED;
+
+                highlight_vector[i*2 + 1] = COLOR_ID_NORMAL;
+            }
+
+            printf("%d:%d -> ", episode, step);
+            print_double_vector(reward, REWARD_SIZE);
+            printf(" -> ");
+            print_double_vector_highlight(state, STATE_SIZE, highlight_vector);
+            printf("\n");
         }
 
         ddpg_update_target_networks(ddpg);
