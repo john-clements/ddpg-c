@@ -10,7 +10,7 @@
 
 #define STATE_SIZE      (2*TARGET_CNT)
 #define ACTION_SIZE     (1*TARGET_CNT)
-#define REWARD_SIZE     1
+#define REWARD_SIZE     (1*TARGET_CNT)
 
 #define LAYER_SIZE      2
 
@@ -70,6 +70,13 @@ double double_constrain(float val)
     int dec_int_mult = ((int)val)/250;
 
     return ((double)val_int) + ((double)dec_int_mult)*250/1000;
+}
+
+double random_target()
+{
+    int x = deepc_random_int(0, 40);
+
+    return STEP_CONTROL * (double)x;
 }
 
 #define ACTION_UP   0
@@ -161,7 +168,7 @@ void print_double_vector_highlight(double* vector, int vector_size, int* highlig
 
 int main()
 {
-    int     layers[LAYER_SIZE]  = {40, 40};
+    int     layers[LAYER_SIZE]  = {128, 64};
     double  state[STATE_SIZE]   = {0};
     double  reward[REWARD_SIZE] = {0};
     double* action              = NULL;
@@ -180,7 +187,7 @@ int main()
         for (int i = 0; i < TARGET_CNT; i++)
         {
             state[2*i]      = .5;
-            state[2*i + 1]  = double_constrain(deepc_random_double(0, 1));
+            state[2*i + 1]  = random_target();
         }
 
         ddpg_new_episode(ddpg);
@@ -189,10 +196,8 @@ int main()
         {
             action = ddpg_action(ddpg, state);
 
-            *reward = 0;
             for (int i = 0; i < TARGET_CNT; i++)
-                *reward = *reward + state_step(&state[i*2], action[i]);
-            *reward = *reward / TARGET_CNT;
+                reward[i] = state_step(&state[i*2], action[i]);
 
             for (int i = 0; i < REWARD_SIZE; i++)
                 episode_reward[i] += reward[i];
