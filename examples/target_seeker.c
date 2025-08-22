@@ -4,9 +4,9 @@
 
 
 #define EPISODE_LENGTH  200
-#define EPISODE_COUNT   100
+#define EPISODE_COUNT   200
 
-#define TARGET_CNT      3
+#define TARGET_CNT      6
 
 #define STATE_SIZE      (2*TARGET_CNT)
 #define ACTION_SIZE     (1*TARGET_CNT)
@@ -19,6 +19,8 @@
 #define MEASURE_QUALITY_START 25
 
 #define PARSED_OUTPUTS  3
+
+//#define NOISE_EN
 
 #define COLOR_NORMAL    "\033[0m"
 #define COLOR_RED       "\033[0;31m"
@@ -112,6 +114,9 @@ int is_action_correct(double* state, double action)
 
     int target_index = get_action_index(action);
 
+    if (is_double_zero(diff))
+        diff = 0.0f;
+
     if (target_index == ACTION_UP)
     {
         if (diff < 0)
@@ -145,7 +150,12 @@ double state_step(double* state, double action)
     else if (state[0] > 1)
         state[0] = 1;
 
-    return -fabs(state[0] - state[1]);
+    double diff = state[0] - state[1];
+
+    if (is_double_zero(diff))
+        diff = 0.0f;
+
+    return -fabs(diff);
 }
 
 void print_double_vector(double* vector, int vector_size)
@@ -172,13 +182,23 @@ int main()
     double  state[STATE_SIZE]   = {0};
     double  reward[REWARD_SIZE] = {0};
     double* action              = NULL;
+#ifdef NOISE_EN
+    double  noise[ACTION_SIZE]  = {0};
+#else
+    double* noise               = NULL;
+#endif
 
     double  reward_quality[REWARD_SIZE]     = {0};
     int     highlight_vector[STATE_SIZE]    = {0};
 
     ddpg_init();
 
-    DDPG *ddpg = ddpg_create(STATE_SIZE, ACTION_SIZE, NULL, LAYER_SIZE, layers, LAYER_SIZE, layers, 100000, 32, REWARD_SIZE);
+#ifdef NOISE_EN
+    for (int i = 0; i < ACTION_SIZE; i++)
+        noise[i] = .1;
+#endif
+
+    DDPG *ddpg = ddpg_create(STATE_SIZE, ACTION_SIZE, noise, LAYER_SIZE, layers, LAYER_SIZE, layers, 100000, 32, REWARD_SIZE);
 
     for (int episode = 0; episode < EPISODE_COUNT; episode++)
     {
@@ -216,7 +236,7 @@ int main()
                 highlight_vector[i*2 + 1] = COLOR_ID_NORMAL;
             }
 
-            printf("%d:%d -> ", episode, step);
+            printf("%3d:%3d -> ", episode, step);
             print_double_vector(reward, REWARD_SIZE);
             printf(" -> ");
             print_double_vector_highlight(state, STATE_SIZE, highlight_vector);
