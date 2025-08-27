@@ -195,7 +195,7 @@ int main()
 
 #ifdef NOISE_EN
     for (int i = 0; i < ACTION_SIZE; i++)
-        noise[i] = .1;
+        noise[i] = .01;
 #endif
 
     DDPG *ddpg = ddpg_create(STATE_SIZE, ACTION_SIZE, noise, LAYER_SIZE, layers, LAYER_SIZE, layers, 100000, 32, REWARD_SIZE);
@@ -252,10 +252,10 @@ int main()
         print_double_vector(episode_reward, REWARD_SIZE);
         printf("\n");
 
-        if (episode >= EPISODE_COUNT - MEASURE_QUALITY_START)
+        if (episode >= EPISODE_COUNT - MEASURE_QUALITY_START - 1)
         {
             for (int i = 0; i < REWARD_SIZE; i++)
-                reward_quality[i] = reward_quality[i] + episode_reward[i]/EPISODE_COUNT;
+                reward_quality[i] = reward_quality[i] + episode_reward[i]/MEASURE_QUALITY_START;
         }
     }
 
