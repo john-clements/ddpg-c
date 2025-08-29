@@ -21,7 +21,7 @@ DDPGC_OBJS := $(DDPGC_SRCS:%.c=./build/ddpgc/%.o)
 
 .PHONY: all clean
 
-all: ./lib/mlpc.a ./lib/ddpgc.a ./bin/saddle ./bin/pendulum ./bin/target_seeker
+all: ./lib/mlpc.a ./lib/ddpgc.a ./bin/saddle ./bin/pendulum ./bin/target_seeker ./bin/target_seeker_v2
 
 ./lib/mlpc.a: $(MLPC_OBJS)
 	@echo "Linking $@"
@@ -54,6 +54,11 @@ all: ./lib/mlpc.a ./lib/ddpgc.a ./bin/saddle ./bin/pendulum ./bin/target_seeker
 	@$(CC) -std=$(STD) $(CFLAGS) $< -I$(INCLUDE_DIR) ./lib/ddpgc.a ./lib/mlpc.a -lm -o $@
 
 ./bin/target_seeker: ./examples/target_seeker.c
+	@echo "Compiling $@"
+	@mkdir -p $(dir $@)
+	@$(CC) -std=$(STD) $(CFLAGS) $< -I$(INCLUDE_DIR) ./lib/ddpgc.a ./lib/mlpc.a -lm -o $@
+
+./bin/target_seeker_v2: ./examples/target_seeker_v2.c
 	@echo "Compiling $@"
 	@mkdir -p $(dir $@)
 	@$(CC) -std=$(STD) $(CFLAGS) $< -I$(INCLUDE_DIR) ./lib/ddpgc.a ./lib/mlpc.a -lm -o $@

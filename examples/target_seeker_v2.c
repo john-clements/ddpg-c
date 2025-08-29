@@ -6,11 +6,11 @@
 #define EPISODE_LENGTH  200
 #define EPISODE_COUNT   200
 
-#define TARGET_CNT      6
+#define TARGET_CNT      1
 
 #define STATE_SIZE      (2*TARGET_CNT)
 #define ACTION_SIZE     (1*TARGET_CNT)
-#define REWARD_SIZE     (1*TARGET_CNT)
+#define REWARD_SIZE     (2*TARGET_CNT)
 
 #define LAYER_SIZE      2
 
@@ -100,9 +100,9 @@ int get_action_index(double action)
 
     // Trinary parsing
 
-    if (action > 0.1)
+    if (action > 0.5)
         return ACTION_UP;
-    else if (action < -0.1)
+    else if (action < -0.5)
         return ACTION_DOWN;
 
     return ACTION_IDLE;
@@ -136,6 +136,31 @@ int is_action_correct(double* state, double action)
     return 0;
 }
 
+double calculate_tracker_reward(double reward, int is_correct)
+{
+    if (is_correct)
+        reward = reward + .1;
+    else
+        reward = reward - .1;
+
+    if (reward < -1)
+        reward = -1;
+    else if (reward > 1)
+        reward = 1;
+
+    return reward;
+}
+
+double calculate_reward(double* state)
+{
+    double diff = state[0] - state[1];
+
+    if (is_double_zero(diff))
+        diff = 0.0f;
+
+    return -fabs(diff);
+}
+
 double state_step(double* state, double action)
 {
     int target_index = get_action_index(action);
@@ -154,6 +179,9 @@ double state_step(double* state, double action)
 
     if (is_double_zero(diff))
         diff = 0.0f;
+
+    if ((diff == 0.0f) && (target_index == ACTION_IDLE))
+        return 1.0f;
 
     return -fabs(diff);
 }
@@ -218,16 +246,20 @@ int main()
 
             for (int i = 0; i < TARGET_CNT; i++)
             {
-                if (is_action_correct(&state[i*2], action[i]))
+                int is_correct = is_action_correct(&state[i*2], action[i]);
+
+                if (is_correct)
                     highlight_vector[i*2] = COLOR_ID_GREEN;
                 else
                     highlight_vector[i*2] = COLOR_ID_RED;
 
                 highlight_vector[i*2 + 1] = COLOR_ID_NORMAL;
+
+                reward[i*2+1] = calculate_tracker_reward(reward[i*2+1], is_correct);
             }
 
             for (int i = 0; i < TARGET_CNT; i++)
-                reward[i] = state_step(&state[i*2], action[i]);
+                reward[i*2] = state_step(&state[i*2], action[i]);
 
             for (int i = 0; i < REWARD_SIZE; i++)
                 episode_reward[i] += reward[i];
