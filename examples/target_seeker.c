@@ -3,13 +3,15 @@
 #include "ddpgc.h"
 
 
-#define EPISODE_LENGTH  200
+//#define SINGLE_ENDED_OUT
+
+#define EPISODE_LENGTH  50
 #define EPISODE_COUNT   200
 
-#define TARGET_CNT      6
+#define TARGET_CNT      3
 
 #define STATE_SIZE      (2*TARGET_CNT)
-#define ACTION_SIZE     (1*TARGET_CNT)
+#define ACTION_SIZE     (3*TARGET_CNT)
 #define REWARD_SIZE     (1*TARGET_CNT)
 
 #define LAYER_SIZE      2
@@ -18,7 +20,11 @@
 
 #define MEASURE_QUALITY_START 25
 
-#define PARSED_OUTPUTS  3
+#ifdef SINGLE_ENDED_OUT
+#define ACTION_GROUP_SIZE  1
+#else
+#define ACTION_GROUP_SIZE  3
+#endif
 
 //#define NOISE_EN
 
@@ -85,30 +91,30 @@ double random_target()
 #define ACTION_DOWN 1
 #define ACTION_IDLE 2
 
-const char* g_action_str[PARSED_OUTPUTS] = {"UP", "DOWN", "IDLE"};
+//const char* g_action_str[ACTION_GROUP_SIZE] = {"UP", "DOWN", "IDLE"};
 
-int get_action_index(double action)
+int get_action_index(double* action)
 {
+#ifdef SINGLE_ENDED_OUT
+    // Trinary parsing
+    if (action[0] > 0.1)
+        return ACTION_UP;
+    else if (action[0] < -0.1)
+        return ACTION_DOWN;
+
+    return ACTION_IDLE;
+#else
     // Binary parsing
-    //return vector_largest_index(action, ACTION_SIZE);
+    return vector_largest_index(action, ACTION_GROUP_SIZE);
 
     // Custom Binary + continuous
     //if (action[0] <= 0 && action[1] <= 0)
     //    return ACTION_IDLE;
-    //return vector_largest_index(action, ACTION_SIZE);
-
-
-    // Trinary parsing
-
-    if (action > 0.1)
-        return ACTION_UP;
-    else if (action < -0.1)
-        return ACTION_DOWN;
-
-    return ACTION_IDLE;
+    //return vector_largest_index(action, ACTION_GROUP_SIZE);
+#endif
 }
 
-int is_action_correct(double* state, double action)
+int is_action_correct(double* state, double* action)
 {
     double diff = state[0] - state[1];
 
@@ -136,7 +142,7 @@ int is_action_correct(double* state, double action)
     return 0;
 }
 
-double state_step(double* state, double action)
+double state_step(double* state, double* action)
 {
     int target_index = get_action_index(action);
 
@@ -218,7 +224,7 @@ int main()
 
             for (int i = 0; i < TARGET_CNT; i++)
             {
-                if (is_action_correct(&state[i*2], action[i]))
+                if (is_action_correct(&state[i*2], &action[i*ACTION_GROUP_SIZE]))
                     highlight_vector[i*2] = COLOR_ID_GREEN;
                 else
                     highlight_vector[i*2] = COLOR_ID_RED;
@@ -227,7 +233,7 @@ int main()
             }
 
             for (int i = 0; i < TARGET_CNT; i++)
-                reward[i] = state_step(&state[i*2], action[i]);
+                reward[i] = state_step(&state[i*2], &action[i*ACTION_GROUP_SIZE]);
 
             for (int i = 0; i < REWARD_SIZE; i++)
                 episode_reward[i] += reward[i];
