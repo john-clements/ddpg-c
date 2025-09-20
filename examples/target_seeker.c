@@ -182,6 +182,68 @@ void print_double_vector_highlight(double* vector, int vector_size, int* highlig
     printf("%s%.2f"COLOR_NORMAL"]", g_color_map[highlight_vector[i]], vector[i]);
 }
 
+#define TEST_TRIALS 10
+void validate_target_seeker(DDPG* ddpg)
+{
+    double  state[STATE_SIZE]               = {0};
+    double  reward[REWARD_SIZE]             = {0};
+    double* action                          = NULL;
+    double  reward_quality[REWARD_SIZE]     = {0};
+    int     highlight_vector[STATE_SIZE]    = {0};
+
+    for (int trial = 0; trial < TEST_TRIALS; trial++)
+    {
+        double episode_reward[REWARD_SIZE] = {0};
+
+        for (int i = 0; i < TARGET_CNT; i++)
+        {
+            state[2*i]      = .5;
+            state[2*i + 1]  = random_target();
+        }
+
+        for (int step = 0; step < 25; step++)
+        {
+            action = ddpg_action(ddpg, state);
+
+            for (int i = 0; i < TARGET_CNT; i++)
+            {
+                if (is_action_correct(&state[i*2], &action[i*ACTION_GROUP_SIZE]))
+                    highlight_vector[i*2] = COLOR_ID_GREEN;
+                else
+                    highlight_vector[i*2] = COLOR_ID_RED;
+
+                highlight_vector[i*2 + 1] = COLOR_ID_NORMAL;
+            }
+
+            for (int i = 0; i < TARGET_CNT; i++)
+                reward[i] = state_step(&state[i*2], &action[i*ACTION_GROUP_SIZE]);
+
+            for (int i = 0; i < REWARD_SIZE; i++)
+                episode_reward[i] += reward[i];
+
+            printf("%3d:%3d -> ", trial, step);
+            print_double_vector(reward, REWARD_SIZE);
+            printf(" -> ");
+            print_double_vector_highlight(state, STATE_SIZE, highlight_vector);
+            printf("\n");
+        }
+
+        for (int i = 0; i < REWARD_SIZE; i++)
+            episode_reward[i] /= EPISODE_LENGTH;
+
+        printf("%d -> ", trial);
+        print_double_vector(episode_reward, REWARD_SIZE);
+        printf("\n");
+
+        for (int i = 0; i < REWARD_SIZE; i++)
+            reward_quality[i] = reward_quality[i] + episode_reward[i]/TEST_TRIALS;
+    }
+
+    printf("Final Reward Quality -> ");
+    print_double_vector(reward_quality, REWARD_SIZE);
+    printf("\n");
+}
+
 int main()
 {
     int     layers[LAYER_SIZE]  = {128, 64};
@@ -265,11 +327,13 @@ int main()
         }
     }
 
-    ddpg_destroy(ddpg);
-
     printf("Final Reward Quality -> ");
     print_double_vector(reward_quality, REWARD_SIZE);
     printf("\n");
+
+    validate_target_seeker(ddpg);
+
+    ddpg_destroy(ddpg);
 
     return 0;
 }
