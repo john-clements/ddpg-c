@@ -5,10 +5,10 @@
 
 //#define SINGLE_ENDED_OUT
 
-#define EPISODE_LENGTH  50
+#define EPISODE_LENGTH  200
 #define EPISODE_COUNT   200
 
-#define TARGET_CNT      3
+#define TARGET_CNT      1
 
 #define STATE_SIZE      (2*TARGET_CNT)
 #define ACTION_SIZE     (3*TARGET_CNT)
@@ -16,7 +16,7 @@
 
 #define LAYER_SIZE      2
 
-#define STEP_CONTROL    .025
+#define STEP_CONTROL    0.025f
 
 #define MEASURE_QUALITY_START 25
 
@@ -61,7 +61,7 @@ int vector_largest_index(double* vector, int vector_size)
 
 int is_double_zero(float val)
 {
-    double epsilon = 1e-9; // A small tolerance value
+    double epsilon = .001; // A small tolerance value
 
     if (fabs(val) < epsilon)
         return 1;
@@ -82,7 +82,9 @@ double double_constrain(float val)
 
 double random_target()
 {
-    int x = deepc_random_int(0, 40);
+    float range = 1.0f / STEP_CONTROL;
+
+    int x = deepc_random_int(0, (int)range);
 
     return STEP_CONTROL * (double)x;
 }
@@ -97,9 +99,9 @@ int get_action_index(double* action)
 {
 #ifdef SINGLE_ENDED_OUT
     // Trinary parsing
-    if (action[0] > 0.1)
+    if (action[0] > 0.1f)
         return ACTION_UP;
-    else if (action[0] < -0.1)
+    else if (action[0] < -0.1f)
         return ACTION_DOWN;
 
     return ACTION_IDLE;
@@ -125,12 +127,12 @@ int is_action_correct(double* state, double* action)
 
     if (target_index == ACTION_UP)
     {
-        if (diff < 0)
+        if (diff < 0.0f)
             return 1;
     }
     else if (target_index == ACTION_DOWN)
     {
-        if (diff > 0)
+        if (diff > 0.0f)
             return 1;
     }
     else if (target_index == ACTION_IDLE)
@@ -151,10 +153,10 @@ double state_step(double* state, double* action)
     else if (target_index == ACTION_DOWN)
         state[0] = state[0] - STEP_CONTROL;
 
-    if (state[0] < 0)
-        state[0] = 0;
-    else if (state[0] > 1)
-        state[0] = 1;
+    if (state[0] < 0.0f)
+        state[0] = 0.0f;
+    else if (state[0] > 1.0f)
+        state[0] = 1.0f;
 
     double diff = state[0] - state[1];
 
@@ -177,12 +179,13 @@ void print_double_vector_highlight(double* vector, int vector_size, int* highlig
     int i = 0;
     printf("[");
     for (i = 0; i < vector_size - 1; i++)
-        printf("%s%.2f, "COLOR_NORMAL, g_color_map[highlight_vector[i]], vector[i]);
+        printf("%s%.3f, "COLOR_NORMAL, g_color_map[highlight_vector[i]], vector[i]);
 
-    printf("%s%.2f"COLOR_NORMAL"]", g_color_map[highlight_vector[i]], vector[i]);
+    printf("%s%.3f"COLOR_NORMAL"]", g_color_map[highlight_vector[i]], vector[i]);
 }
 
-#define TEST_TRIALS 10
+#define TEST_TRIALS             10
+#define TEST_EPISODE_LENGTH     25
 void validate_target_seeker(DDPG* ddpg)
 {
     double  state[STATE_SIZE]               = {0};
@@ -197,7 +200,7 @@ void validate_target_seeker(DDPG* ddpg)
 
         for (int i = 0; i < TARGET_CNT; i++)
         {
-            state[2*i]      = .5;
+            state[2*i]      = 0.5f;
             state[2*i + 1]  = random_target();
         }
 
@@ -229,7 +232,7 @@ void validate_target_seeker(DDPG* ddpg)
         }
 
         for (int i = 0; i < REWARD_SIZE; i++)
-            episode_reward[i] /= EPISODE_LENGTH;
+            episode_reward[i] /= TEST_EPISODE_LENGTH;
 
         printf("%d -> ", trial);
         print_double_vector(episode_reward, REWARD_SIZE);
@@ -274,7 +277,7 @@ int main()
 
         for (int i = 0; i < TARGET_CNT; i++)
         {
-            state[2*i]      = .5;
+            state[2*i]      = 0.5f;
             state[2*i + 1]  = random_target();
         }
 

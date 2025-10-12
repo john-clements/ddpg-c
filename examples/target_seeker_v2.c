@@ -8,9 +8,12 @@
 
 #define TARGET_CNT      1
 
+#define REWARD_PER_ACTION   4
+#define MULTI_ACTION_CNT    10
+
 #define STATE_SIZE      (2*TARGET_CNT)
-#define ACTION_SIZE     (1*TARGET_CNT)
-#define REWARD_SIZE     (2*TARGET_CNT)
+#define ACTION_SIZE     (MULTI_ACTION_CNT*TARGET_CNT)
+#define REWARD_SIZE     (REWARD_PER_ACTION*TARGET_CNT)
 
 #define LAYER_SIZE      2
 
@@ -100,38 +103,61 @@ int get_action_index(double action)
 
     // Trinary parsing
 
-    if (action > 0.5)
+    if (action > 0.5f)
         return ACTION_UP;
-    else if (action < -0.5)
+    else if (action < -0.5f)
         return ACTION_DOWN;
 
     return ACTION_IDLE;
 }
 
-int is_action_correct(double* state, double action)
+int get_action_inverse_index(double action)
+{
+    if (action > 0.5f)
+        return ACTION_DOWN;
+    else if (action <ACTION_UP-0.5f)
+        return ACTION_DOWN;
+
+    return ACTION_IDLE;
+}
+
+int is_action_correct(double* state, double* action)
 {
     double diff = state[0] - state[1];
 
-    int target_index = get_action_index(action);
+    int target_index[MULTI_ACTION_CNT] = {0};
+
+    for (int i = 0; i < MULTI_ACTION_CNT; i++)
+    {
+        if (i%2 == 0)
+            target_index[i] = get_action_index(action[i]);
+        else
+            target_index[i] = get_action_inverse_index(action[i]);
+    }
 
     if (is_double_zero(diff))
         diff = 0.0f;
 
-    if (target_index == ACTION_UP)
+    double adjust = 0.0f;
+
+    for (int i = 0; i < MULTI_ACTION_CNT; i++)
     {
-        if (diff < 0)
-            return 1;
+        if (target_index[i] == ACTION_UP)
+            adjust = adjust + STEP_CONTROL;
+        else if (target_index[i] == ACTION_DOWN)
+            adjust = adjust - STEP_CONTROL;
     }
-    else if (target_index == ACTION_DOWN)
-    {
-        if (diff > 0)
-            return 1;
-    }
-    else if (target_index == ACTION_IDLE)
-    {
-        if (is_double_zero(diff))
-            return 1;
-    }
+
+    double new_diff = state[0] + adjust - state[1];
+
+    if (is_double_zero(new_diff))
+        new_diff = 0.0f;
+
+    if ((new_diff == 0.0f) && (diff == 0.0f))
+        return 1;
+
+    if (new_diff < diff)
+        return 1;
 
     return 0;
 }
@@ -151,6 +177,29 @@ double calculate_tracker_reward(double reward, int is_correct)
     return reward;
 }
 
+double calculate_stop_reward(double* state)
+{
+    double diff = state[0] - state[1];
+
+    if (is_double_zero(diff))
+        return 0;
+
+    return -1;
+}
+
+double calculate_fine_grain_reward(double* state)
+{
+    double diff = state[0] - state[1];
+
+    if (is_double_zero(diff))
+        return 0;
+
+    if (diff > .1)
+        return -1;
+
+    return diff*10;
+}
+
 double calculate_reward(double* state)
 {
     double diff = state[0] - state[1];
@@ -161,14 +210,26 @@ double calculate_reward(double* state)
     return -fabs(diff);
 }
 
-double state_step(double* state, double action)
+double state_step(double* state, double* action)
 {
-    int target_index = get_action_index(action);
+    int target_index[MULTI_ACTION_CNT] = {0};
 
-    if (target_index == ACTION_UP)
-        state[0] = state[0] + STEP_CONTROL;
-    else if (target_index == ACTION_DOWN)
-        state[0] = state[0] - STEP_CONTROL;
+    for (int i = 0; i < MULTI_ACTION_CNT; i++)
+    {
+        if (i%2 == 0)
+            target_index[i] = get_action_index(action[i]);
+        else
+            target_index[i] = get_action_inverse_index(action[i]);
+    }
+
+    for (int i = 0; i < MULTI_ACTION_CNT; i++)
+    {
+//printf("TEST %f -> %d\n", action[i], target_index[i]);
+        if (target_index[i] == ACTION_UP)
+            state[0] = state[0] + STEP_CONTROL;
+        else if (target_index[i] == ACTION_DOWN)
+            state[0] = state[0] - STEP_CONTROL;
+    }
 
     if (state[0] < 0)
         state[0] = 0;
@@ -180,9 +241,6 @@ double state_step(double* state, double action)
     if (is_double_zero(diff))
         diff = 0.0f;
 
-    if ((diff == 0.0f) && (target_index == ACTION_IDLE))
-        return 1.0f;
-
     return -fabs(diff);
 }
 
@@ -190,8 +248,8 @@ void print_double_vector(double* vector, int vector_size)
 {
     printf("[");
     for (int i = 0; i < vector_size - 1; i++)
-        printf("%f ", vector[i]);
-    printf("%f]", vector[vector_size - 1]);
+        printf("%.3f ", vector[i]);
+    printf("%.3f]", vector[vector_size - 1]);
 }
 
 void print_double_vector_highlight(double* vector, int vector_size, int* highlight_vector)
@@ -199,9 +257,9 @@ void print_double_vector_highlight(double* vector, int vector_size, int* highlig
     int i = 0;
     printf("[");
     for (i = 0; i < vector_size - 1; i++)
-        printf("%s%.2f, "COLOR_NORMAL, g_color_map[highlight_vector[i]], vector[i]);
+        printf("%s%.3f, "COLOR_NORMAL, g_color_map[highlight_vector[i]], vector[i]);
 
-    printf("%s%.2f"COLOR_NORMAL"]", g_color_map[highlight_vector[i]], vector[i]);
+    printf("%s%.3f"COLOR_NORMAL"]", g_color_map[highlight_vector[i]], vector[i]);
 }
 
 int main()
@@ -246,7 +304,7 @@ int main()
 
             for (int i = 0; i < TARGET_CNT; i++)
             {
-                int is_correct = is_action_correct(&state[i*2], action[i]);
+                int is_correct = is_action_correct(&state[i*2], &action[i*MULTI_ACTION_CNT]);
 
                 if (is_correct)
                     highlight_vector[i*2] = COLOR_ID_GREEN;
@@ -255,11 +313,16 @@ int main()
 
                 highlight_vector[i*2 + 1] = COLOR_ID_NORMAL;
 
-                reward[i*2+1] = calculate_tracker_reward(reward[i*2+1], is_correct);
+                reward[i*REWARD_PER_ACTION+1] = calculate_tracker_reward(reward[i*REWARD_PER_ACTION+1], is_correct);
             }
 
             for (int i = 0; i < TARGET_CNT; i++)
-                reward[i*2] = state_step(&state[i*2], action[i]);
+            {
+                reward[i*REWARD_PER_ACTION] = state_step(&state[i*REWARD_PER_ACTION], &action[i*MULTI_ACTION_CNT]);
+
+                reward[i*REWARD_PER_ACTION+2] = calculate_stop_reward(&state[i*REWARD_PER_ACTION]);
+                reward[i*REWARD_PER_ACTION+3] = calculate_fine_grain_reward(&state[i*REWARD_PER_ACTION]);
+            }
 
             for (int i = 0; i < REWARD_SIZE; i++)
                 episode_reward[i] += reward[i];
@@ -272,6 +335,8 @@ int main()
             print_double_vector(reward, REWARD_SIZE);
             printf(" -> ");
             print_double_vector_highlight(state, STATE_SIZE, highlight_vector);
+            printf(" -> ");
+            print_double_vector(action, ACTION_SIZE);
             printf("\n");
         }
 
