@@ -1,20 +1,5 @@
-/**
- * \file   mlp.h
- * \author Domen Šoberl
- * \date   January 2023
- * \brief  An implementation of Multilayer Perceptrons (MLP)
- * 
- * This unit implements fully connected neural networks (multilayer perceptrons).
- * A MLP is implemented as an array of layers. The input layer is implicit and
- * determined only by the width of the `weights` matrix within the first layer
- * The MLP structure therefore stores all the hidden layers and the output layer.
- * The first hidden layer has index 0, while the output layer has index `depth`.
- *
- * A MLP has a fixed sized dimensions, which is determined upon its creation.
- * This also means a fixed batch size. This enables all the needed matrices
- * to be created initially, without any need for additional memory allocations
- * during MLP processing.
- */
+#ifndef __MLP_H__
+#define __MLP_H__
 
 #include <stdio.h>
 #include "matrix.h"
@@ -134,6 +119,18 @@ typedef struct MLP
     Matrix output;
 } MLP;
 
+typedef struct MLP_MULTI
+{
+    MLP*    input;
+
+    int     head_cnt;
+    int     head_input_size;
+    int     head_output_size;
+    MLP**   head;
+
+    Matrix  output;
+} MLP_MULTI;
+
 /**
  * Initializes the MLPC library. This function should be called once at the
  * start of the program.
@@ -171,6 +168,19 @@ MLP *mlp_create(
     int outputLayerActivation,
     int batchSize);
 
+MLP_MULTI *mlp_multi_create(
+    int inputSize,
+    int outputSize, // Per head
+    int depth,
+    int *hiddenLayerSizes,
+    int hiddenLayerActivation,
+    int outputLayerActivation,
+    int batchSize,
+    int headCnt,
+    int headInputSize,
+    int headDepth,
+    int* headHiddenSize);
+
 /**
  * Creates a new MLP that is a clone of the given MLP. All the content from the
  * given MLP is copied to the newly created MLP. A MLP created using this
@@ -179,12 +189,14 @@ MLP *mlp_create(
  * \returns The newly created and initialized MLP structure.
  */
 MLP *mlp_clone(MLP *mlp);
+MLP_MULTI* mlp_multi_clone(MLP_MULTI* mlp);
 
 /**
  * Frees the memory allocated on the heap by the given MLP. After being
  * destroyed, the MLP structure should not be used anymore.
  */
 void mlp_destroy(MLP *mlp);
+void mlp_multi_destroy(MLP_MULTI *mlp);
 
 /**
  * Initializes the weights and biases of the given MLP with random values using
@@ -201,6 +213,7 @@ void mlp_initialize(MLP *mlp);
  * on MLP clones.
  */
 void mlp_copy(MLP *dst, MLP *src);
+void mlp_multi_copy(MLP_MULTI *dst, MLP_MULTI *src);
 
 /**
  * Performs the feedforward operation on the given batch `x`. The shape of
@@ -215,6 +228,7 @@ void mlp_copy(MLP *dst, MLP *src);
  * by the caller.
  */
 Matrix mlp_feedforward(MLP *mlp, Matrix x);
+Matrix mlp_multi_feedforward(MLP_MULTI *mlp, Matrix x);
 
 /**
  * Performs the back-propagation operation using the errors obtained from the
@@ -234,6 +248,7 @@ Matrix mlp_feedforward(MLP *mlp, Matrix x);
  * \returns The mean error computed by the loss function.
  */
 double mlp_backpropagate(MLP *mlp, Matrix y, int lossFunctionCode);
+double mlp_multi_backpropagate(MLP_MULTI *mlp, Matrix y, int lossFunctionCode);
 
 /**
  * Returns the error values at the input level. This is useful when performing
@@ -288,3 +303,5 @@ int mlp_save_weights(MLP *mlp, const char *filename);
  * \returns 0 if successful, -1 otherwise.
  */
 int mlp_write_weights(MLP *mlp, FILE *file);
+
+#endif

@@ -69,6 +69,92 @@ DDPG *ddpg_create(
 
     ddpg->rewardSize = rewardSize;
 
+    ddpg->is_multi_head = 0;
+
+    return ddpg;
+}
+
+DDPG *ddpg_multi_head_create(
+    int stateSize,
+    int actionSize, // Actions per head
+    double *noise,
+    int actorDepth,
+    int *actorLayers,
+    int ActionSetCnt,
+    int headDepth,
+    int* headLayers,
+    int criticDepth,
+    int *criticLayers,
+    int memorySize,
+    int batchSize,
+    int rewardSize)
+{
+    int i = 0;
+    DDPG *ddpg = malloc(sizeof(DDPG));
+    ddpg->stateSize = stateSize;
+    ddpg->actionSize = actionSize;
+
+    /* Action returned. */
+    ddpg->action = malloc(actionSize * sizeof(double));
+    
+    /* If noise is NULL, no noise is applied to actions. */
+    ddpg->noise = NULL;
+    if (noise != NULL)
+    {
+        ddpg->noise = malloc(actionSize * sizeof(double));
+        for (int i = 0; i < actionSize; i++)
+            ddpg->noise[i] = noise[i];
+    }
+    
+    /* The MLPC library is used to construct the actor and the critic. */
+    ddpg->actor_multi = mlp_multi_create(stateSize,
+                                         actionSize,
+                                         actorDepth,
+                                         actorLayers,
+                                         ACTIVATION_RELU,
+                                         ACTIVATION_TANH,
+                                         batchSize,
+                                         ActionSetCnt,
+                                         actionSize*4,
+                                         headDepth,
+                                         headLayers);
+
+    ddpg->critic = mlp_create(actionSize + stateSize, rewardSize, criticDepth, criticLayers, ACTIVATION_RELU, ACTIVATION_LINEAR, batchSize);
+    ddpg->actor_target_multi = mlp_multi_clone(ddpg->actor_multi);
+    ddpg->criticTarget = mlp_clone(ddpg->critic);
+
+    /* Initialize the Adam optimizers. */
+    ddpg->actor_multi_adam = (Adam**)malloc(sizeof(Adam*) * (ddpg->actor_multi->head_cnt + 1));
+    for (i = 0; i < ddpg->actor_multi->head_cnt; i++)
+        ddpg->actor_multi_adam[i] = adam_create(ddpg->actor_multi->head[i]);
+    ddpg->actor_multi_adam[i] = adam_create(ddpg->actor_multi->input);
+
+    ddpg->criticAdam = adam_create(ddpg->critic);
+
+    /* Initialize matrices for actors and critics. */
+    ddpg->actorInput = matrix_create(batchSize, stateSize);
+    ddpg->criticInput = matrix_create(batchSize, actionSize + stateSize);
+    ddpg->actorErrors = matrix_create(batchSize, actionSize);
+    ddpg->criticErrors = matrix_create(batchSize, rewardSize);
+
+    /* Initialize batch capacity. */
+    ddpg->batchSize = batchSize;
+    ddpg->batchIndices = malloc(batchSize * sizeof(int));
+
+    /* The memory stores the current state, action, reward, next state, and the terminal flag. */
+    ddpg->memory = matrix_create(memorySize, actionSize + 2 * stateSize + rewardSize + 1);
+    ddpg->memorySize = memorySize;  
+    ddpg->memoryUsed = 0;
+    ddpg->memoryIdx = 0;
+
+    /* Last observed state. */
+    ddpg->lastState = malloc(ddpg->stateSize * sizeof(double));
+    ddpg->lastStateValid = 0;
+
+    ddpg->rewardSize = rewardSize;
+
+    ddpg->is_multi_head = 1;
+
     return ddpg;
 }
 
@@ -139,7 +225,13 @@ double *ddpg_action(DDPG *ddpg, double *state)
        use only the first sample in the batch and set the rest to 0. */
     matrix_clear(ddpg->actorInput);
     ddpg_data_copy(ddpg->actorInput.data, state, ddpg->stateSize);
-    Matrix action = mlp_feedforward(ddpg->actor, ddpg->actorInput);
+
+    Matrix action = {0};
+
+    if (ddpg->is_multi_head)
+        action = mlp_multi_feedforward(ddpg->actor_multi, ddpg->actorInput);
+    else
+        action = mlp_feedforward(ddpg->actor, ddpg->actorInput);
 
     /* Copy the resulting action to the DDPG structure. */
     for (int i = 0; i < ddpg->actionSize; i++)
@@ -164,6 +256,8 @@ double *ddpg_action(DDPG *ddpg, double *state)
 
 void ddpg_train(DDPG *ddpg, double gamma)
 {
+    int i = 0;
+
     /* If not enough samples in memory, do nothing. */
     if (ddpg->memoryUsed < ddpg->batchSize)
         return;
@@ -179,7 +273,11 @@ void ddpg_train(DDPG *ddpg, double gamma)
         ddpg_data_copy(&MATRIX(ddpg->actorInput, i, 0), &MATRIX(ddpg->memory, ddpg->batchIndices[i], 0), ddpg->stateSize);
 
     /* Get the proposed actions for the input states. */
-    Matrix proposedActions = mlp_feedforward(ddpg->actor, ddpg->actorInput);
+    Matrix proposedActions = {0};
+    if (ddpg->is_multi_head)
+        proposedActions = mlp_multi_feedforward(ddpg->actor_multi, ddpg->actorInput);
+    else
+        proposedActions = mlp_feedforward(ddpg->actor, ddpg->actorInput);
 
     /* Concatenate the proposed actions with batch states. */
     for (int i = 0; i < ddpg->batchSize; i++)
@@ -210,7 +308,14 @@ void ddpg_train(DDPG *ddpg, double gamma)
     mlp_backpropagate(ddpg->actor, ddpg->actorErrors, LOSS_NONE);
 
     /* Optimize the actor */
-    adam_optimize(ddpg->actor, ddpg->actorAdam);
+    if (ddpg->is_multi_head)
+    {
+        for (i = 0; i < ddpg->actor_multi->head_cnt; i++)
+            adam_optimize(ddpg->actor_multi->head[i], ddpg->actor_multi_adam[i]);
+        adam_optimize(ddpg->actor_multi->input, ddpg->actor_multi_adam[i]);
+    }
+    else
+        adam_optimize(ddpg->actor, ddpg->actorAdam);
 
     /* Train the critic. */
 
@@ -226,8 +331,12 @@ void ddpg_train(DDPG *ddpg, double gamma)
     /* Feed the next state batch to the target actor. */
     for (int i = 0; i < ddpg->batchSize; i++)
         ddpg_data_copy(&MATRIX(ddpg->actorInput, i, 0), &MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + ddpg->rewardSize)), ddpg->stateSize);
-    
-    Matrix actorTargetOutput = mlp_feedforward(ddpg->actorTarget, ddpg->actorInput);
+
+    Matrix actorTargetOutput = {0};
+    if (ddpg->is_multi_head)
+        actorTargetOutput = mlp_multi_feedforward(ddpg->actor_target_multi, ddpg->actorInput);
+    else
+        actorTargetOutput = mlp_feedforward(ddpg->actorTarget, ddpg->actorInput);
 
     /* Concatenate target actions with the next state batch and feed it to the target critic. */
     for (int i = 0; i < ddpg->batchSize; i++)
@@ -263,7 +372,10 @@ void ddpg_train(DDPG *ddpg, double gamma)
 
 void ddpg_update_target_networks(DDPG *ddpg)
 {
-    mlp_copy(ddpg->actorTarget, ddpg->actor);
+    if (ddpg->is_multi_head)
+        mlp_multi_copy(ddpg->actor_target_multi, ddpg->actor_multi);
+    else
+        mlp_copy(ddpg->actorTarget, ddpg->actor);
     mlp_copy(ddpg->criticTarget, ddpg->critic);
 }
 

@@ -1,12 +1,5 @@
-/**
- * \file   random.h
- * \author Domen Šoberl
- * \date   January 2023
- * \brief  Random number generators
- * 
- * This unit defines random number generators that are used by the rest of the
- * library. They are also exposed to the outside user.
- */
+#ifndef __RANDOM_H__
+#define __RANDOM_H__
 
 /**
  * Initializes the seed. This is done when initializing the library.
@@ -23,3 +16,5 @@ int deepc_random_int(int min, int max);
  * \returns A random number of type double between ´min´ and ´max´.
  */
 double deepc_random_double(double min, double max);
+
+#endif

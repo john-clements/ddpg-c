@@ -1,6 +1,6 @@
 #include <math.h>
 #include <stdio.h>
-#include "ddpgc.h"
+#include "ddpg.h"
 
 
 //#define SINGLE_ENDED_OUT

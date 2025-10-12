@@ -3,10 +3,11 @@ AR := ar
 STD := c17
 CFLAGS := -Wall -O3
 
-INCLUDE_DIR := ./include
+INCLUDE_DIR := -I./src/mlpc -I./src/ddpgc
 
 MLPC_SRCS := \
 	mlp.c \
+	mlp_multi.c \
 	matrix.c \
 	activation.c \
 	loss.c \
@@ -41,32 +42,32 @@ all: ./lib/mlpc.a ./lib/ddpgc.a ./bin/saddle ./bin/pendulum ./bin/target_seeker 
 ./build/ddpgc/%.o: ./src/ddpgc/%.c
 	@echo "Compiling $<"
 	@mkdir -p $(dir $@)
-	@$(CC) -std=$(STD) $(CFLAGS) -I$(INCLUDE_DIR) -c $< -o $@
+	@$(CC) -std=$(STD) $(CFLAGS) $(INCLUDE_DIR) -c $< -o $@
 
 ./bin/saddle: ./examples/saddle.c
 	@echo "Compiling $@"
 	@mkdir -p $(dir $@)
-	@$(CC) -std=$(STD) $(CFLAGS) $< -I$(INCLUDE_DIR) ./lib/mlpc.a -lm -o $@
+	@$(CC) -std=$(STD) $(CFLAGS) $< $(INCLUDE_DIR) ./lib/mlpc.a -lm -o $@
 
 ./bin/pendulum: ./examples/pendulum.c
 	@echo "Compiling $@"
 	@mkdir -p $(dir $@)
-	@$(CC) -std=$(STD) $(CFLAGS) $< -I$(INCLUDE_DIR) ./lib/ddpgc.a ./lib/mlpc.a -lm -o $@
+	@$(CC) -std=$(STD) $(CFLAGS) $< $(INCLUDE_DIR) ./lib/ddpgc.a ./lib/mlpc.a -lm -o $@
 
 ./bin/target_seeker: ./examples/target_seeker.c
 	@echo "Compiling $@"
 	@mkdir -p $(dir $@)
-	@$(CC) -std=$(STD) $(CFLAGS) $< -I$(INCLUDE_DIR) ./lib/ddpgc.a ./lib/mlpc.a -lm -o $@
+	@$(CC) -std=$(STD) $(CFLAGS) $< $(INCLUDE_DIR) ./lib/ddpgc.a ./lib/mlpc.a -lm -o $@
 
 ./bin/target_seeker_v2: ./examples/target_seeker_v2.c
 	@echo "Compiling $@"
 	@mkdir -p $(dir $@)
-	@$(CC) -std=$(STD) $(CFLAGS) $< -I$(INCLUDE_DIR) ./lib/ddpgc.a ./lib/mlpc.a -lm -o $@
+	@$(CC) -std=$(STD) $(CFLAGS) $< $(INCLUDE_DIR) ./lib/ddpgc.a ./lib/mlpc.a -lm -o $@
 
 ./bin/target_seeker_mlp: ./examples/target_seeker_mlp.c
 	@echo "Compiling $@"
 	@mkdir -p $(dir $@)
-	@$(CC) -std=$(STD) $(CFLAGS) $< -I$(INCLUDE_DIR) ./lib/mlpc.a -lm -o $@
+	@$(CC) -std=$(STD) $(CFLAGS) $< $(INCLUDE_DIR) ./lib/mlpc.a -lm -o $@
 
 clean:
 	@rm -rf ./build

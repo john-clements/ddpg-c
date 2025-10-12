@@ -1,20 +1,5 @@
-/**
- * \file   activation.h
- * \author Domen Šoberl
- * \date   January 2023
- * \brief  Activation functions
- *
- * This module defines several activation functions and their derivatives that
- * can be used with neural networks. Activation functions and their derivatives
- * are defined as C functions of type `double f(double)`. They are not visible
- * outside the module, but can be obtained as the `ActivationFunction` type of
- * pointers.
- * 
- * The derivative functions expect as the input the output of their
- * corresponding activation function. This requires less computation and
- * less storage in the neural network. Luckily, all derivative functions use
- * here can be defined to work with activation outputs.
- */
+#ifndef __ACTIVATION_H__
+#define __ACTIVATION_H__
 
 /**
  * When not using an activation function, provide the ACTIVATION_NONE code.
@@ -50,3 +35,5 @@ ActivationFunction getActivationFunction(int code);
  * corresponds to the given integer `code`.
  */
 ActivationFunction getActivationFunctionDeriv(int code);
+
+#endif

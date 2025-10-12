@@ -1,22 +1,5 @@
-/**
- * \file   matrix.h
- * \author Domen Šoberl
- * \date   January 2023
- * \brief  Matrix structure and arithmetics
- *
- * This module provides a low-level implementation of 2D matrices. The matrices
- * are of fixed shape, which is determined upon matrix creation. Entries are
- * always of type double. Arithmetic operations are performed without checking
- * the validity of dimensions and it is up to the user to provide matrices of
- * valid shapes for the used operation. Memory violation may occur otherwise.
- * 
- * A matrix is created by calling the matrix_create function and must finally be
- * disposed by calling the matrix_destroy function.
- * 
- * The elements are stored in a continuous block of memory as an array of type
- * double. The element at (`row`, `col`) position can be be found at the
- * `[row * matrix.columns + col]` index in the array.
- */
+#ifndef __MATRIX_H__
+#define __MATRIX_H__
 
 #include <stdio.h>
 #include "activation.h"
@@ -210,3 +193,5 @@ void matrix_sum_rows_transpose(Matrix matrix, Matrix result);
  * Applies the given activation function to every element in the `matrix`.
  */
 void matrix_apply(Matrix matrix, ActivationFunction activationFunction);
+
+#endif

@@ -10,7 +10,9 @@
  */
 
 #include <stdio.h>
-#include "mlpc.h"
+#include "mlp.h"
+#include "adam.h"
+#include "loss.h"
 
 /**
  * A definition of the saddle function.

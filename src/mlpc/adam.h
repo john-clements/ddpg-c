@@ -1,14 +1,5 @@
-/**
- * \file   adam.h
- * \author Domen Šoberl
- * \date   February 2024
- * \brief  Adam optimizer
- * 
- * This unit implements the Adam optimizer. As opposed to the SGD optimization,
- * which is implemented within the MLP unit, Adam optimization requires its
- * internal state to be stored and transferred between consecutive optimization
- * steps.
- */
+#ifndef __ADAM_H__
+#define __ADAM_H__
 
 #include <stdio.h>
 #include "mlp.h"
@@ -119,3 +110,5 @@ void adam_reset(Adam *adam);
  * optimizer.
  */
 void adam_optimize(MLP *mlp, Adam *adam);
+
+#endif

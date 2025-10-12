@@ -1,9 +1,7 @@
+#ifndef __LOSS_H__
+#define __LOSS_H__
+
 /**
- * \file   loss.h
- * \author Domen Šoberl
- * \date   January 2023
- * \brief  Loss functions
- * 
  * This module provides a common interface for loss functions. It defines only
  * the MSE loss functions, but other functions can easily be defined if needed.
  * 
@@ -48,3 +46,5 @@ typedef double (*LossFunction)(Matrix yhat, Matrix y, Matrix error);
  * \returns The pointer to the loss function with the given `code`.
  */
 LossFunction getLossFunction(int code);
+
+#endif

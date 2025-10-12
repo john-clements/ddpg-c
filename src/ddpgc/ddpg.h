@@ -1,14 +1,11 @@
-/**
- * \file   ddpg.h
- * \author Domen Šoberl
- * \date   January 2023
- * \brief  A C implementation of the DDPG method.
- * 
- * This unit contains the complete DDPGC program code. It defines a single
- * structure called DDPG that represents one instance of the DDPG algorithm.
- */
+#ifndef __DDPG_H__
+#define __DDPG_H__
 
-#include "mlpc.h"
+#include "../mlpc/mlp.h"
+#include "../mlpc/adam.h"
+#include "../mlpc/matrix.h"
+#include "../mlpc/loss.h"
+#include "../mlpc/random.h"
 
 /**
  * This structure contains all the parameters of a DDPG instance, its current
@@ -144,6 +141,12 @@ typedef struct DDPG
     int lastStateValid;
 
     int rewardSize;
+
+    int is_multi_head;
+
+    MLP_MULTI*  actor_multi;
+    MLP_MULTI*  actor_target_multi;
+    Adam**      actor_multi_adam;
 } DDPG;
 
 /**
@@ -186,6 +189,21 @@ DDPG *ddpg_create(
     double *noise,
     int actorDepth,
     int *actorLayers,
+    int criticDepth,
+    int *criticLayers,
+    int memorySize,
+    int batchSize,
+    int rewardSize);
+
+DDPG *ddpg_multi_head_create(
+    int stateSize,
+    int actionSize, // Actions per head
+    double *noise,
+    int actorDepth,
+    int *actorLayers,
+    int ActionSetCnt,
+    int headDepth,
+    int* headLayers,
     int criticDepth,
     int *criticLayers,
     int memorySize,
@@ -264,3 +282,5 @@ int ddpg_save_policy(DDPG *ddpg, const char *filename);
  * \returns 0 if successful, -1 otherwise.
  */
 int ddpg_load_policy(DDPG *ddpg, const char *filename);
+
+#endif

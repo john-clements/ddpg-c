@@ -1,6 +1,9 @@
 #include <math.h>
 #include <stdio.h>
-#include "mlpc.h"
+#include "mlp.h"
+#include "adam.h"
+#include "loss.h"
+#include "random.h"
 
 
 //#define SINGLE_ENDED_OUT

@@ -12,7 +12,7 @@
 
 #include <math.h>
 #include <stdio.h>
-#include "ddpgc.h"
+#include "ddpg.h"
 
 #define PI 3.14159265358979323846
 
