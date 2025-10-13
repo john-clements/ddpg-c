@@ -48,7 +48,7 @@ MLP *mlp_create(int inputSize, int outputSize, int depth, int *hiddenLayerSizes,
     mlp->output = matrix_create(batchSize, outputSize);
 
     mlp_initialize(mlp);
-    
+
     return mlp;
 }
 

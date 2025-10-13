@@ -177,7 +177,6 @@ MLP_MULTI *mlp_multi_create(
     int outputLayerActivation,
     int batchSize,
     int headCnt,
-    int headInputSize,
     int headDepth,
     int* headHiddenSize);
 

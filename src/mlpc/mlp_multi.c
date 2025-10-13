@@ -13,7 +13,6 @@ MLP_MULTI *mlp_multi_create(
     int outputLayerActivation,
     int batchSize,
     int headCnt,
-    int headInputSize,
     int headDepth,
     int* headHiddenSize)
 {
@@ -28,13 +27,13 @@ MLP_MULTI *mlp_multi_create(
                             batchSize);
 
     mlp->head_cnt           = headCnt;
-    mlp->head_input_size    = headInputSize;
+    mlp->head_input_size    = hiddenLayerSizes[depth-1]/headCnt;
     mlp->head_output_size   = outputSize;
 
     mlp->head = (MLP**)malloc(sizeof(MLP*) * mlp->head_cnt);
 
     for (int i = 0; i < mlp->head_cnt; i++)
-        mlp->head[i] = mlp_create(headInputSize,
+        mlp->head[i] = mlp_create(mlp->head_input_size,
                                   outputSize,
                                   headDepth,
                                   headHiddenSize,
@@ -101,14 +100,23 @@ Matrix mlp_multi_feedforward(MLP_MULTI *mlp, Matrix x)
 {
     Matrix x_int = mlp_feedforward(mlp->input, x);
 
+    Matrix x_int_sub = matrix_create(mlp->input->batchSize, mlp->head_input_size);
+
     for (int i = 0; i < mlp->head_cnt; i++)
     {
-        Matrix out = mlp_feedforward(mlp->head[i], x_int);
+
+        for (int batch = 0; batch < mlp->head[i]->batchSize; batch++)   
+            for (int out_index = 0; out_index < mlp->head_input_size; out_index++)   
+                MATRIX(x_int_sub, batch, out_index) = MATRIX(x_int, batch, i*mlp->head_input_size + out_index);
+
+        Matrix out = mlp_feedforward(mlp->head[i], x_int_sub);
 
         for (int batch = 0; batch < mlp->head[i]->batchSize; batch++)   
             for (int out_index = 0; out_index < mlp->head_output_size; out_index++)   
                 MATRIX(mlp->output, batch, i*mlp->head_output_size + out_index) = MATRIX(out, batch, out_index);
     }
+
+    matrix_destroy(x_int_sub);
 
     return mlp->output;
 }
@@ -118,7 +126,7 @@ double mlp_multi_backpropagate(MLP_MULTI *mlp, Matrix y, int lossFunctionCode)
     double loss  = 0;
     Matrix y_sub = matrix_create(mlp->input->batchSize, mlp->head[0]->output.columns); // head_output_size
     Matrix y_int = matrix_create(mlp->input->batchSize, mlp->input->output.columns);
-
+//printf("%d %d %d\n", mlp->head[0]->output.columns, mlp->head_output_size, mlp->input->output.columns);
     for (int i = 0; i < mlp->head_cnt; i++)
     {
         for (int batch = 0; batch < mlp->head[i]->batchSize; batch++)   
@@ -128,7 +136,7 @@ double mlp_multi_backpropagate(MLP_MULTI *mlp, Matrix y, int lossFunctionCode)
         loss += mlp_backpropagate(mlp->head[i], y_sub, lossFunctionCode);
 
         Matrix errors = mlp_get_input_errors(mlp->head[i]);
-
+//printf("%d %d\n", errors.columns, y_int.columns);
         // Copy errors to intermediate Y
         for (int batch = 0; batch < mlp->head[i]->batchSize; batch++)   
             for (int out_index = 0; out_index < errors.columns; out_index++)

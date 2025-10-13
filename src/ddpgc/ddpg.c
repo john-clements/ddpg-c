@@ -92,17 +92,17 @@ DDPG *ddpg_multi_head_create(
     int i = 0;
     DDPG *ddpg = malloc(sizeof(DDPG));
     ddpg->stateSize = stateSize;
-    ddpg->actionSize = actionSize;
+    ddpg->actionSize = actionSize*ActionSetCnt;
 
     /* Action returned. */
-    ddpg->action = malloc(actionSize * sizeof(double));
+    ddpg->action = malloc(ddpg->actionSize * sizeof(double));
     
     /* If noise is NULL, no noise is applied to actions. */
     ddpg->noise = NULL;
     if (noise != NULL)
     {
-        ddpg->noise = malloc(actionSize * sizeof(double));
-        for (int i = 0; i < actionSize; i++)
+        ddpg->noise = malloc(ddpg->actionSize * sizeof(double));
+        for (int i = 0; i < ddpg->actionSize; i++)
             ddpg->noise[i] = noise[i];
     }
     
@@ -115,11 +115,10 @@ DDPG *ddpg_multi_head_create(
                                          ACTIVATION_TANH,
                                          batchSize,
                                          ActionSetCnt,
-                                         actionSize*4,
                                          headDepth,
                                          headLayers);
 
-    ddpg->critic = mlp_create(actionSize + stateSize, rewardSize, criticDepth, criticLayers, ACTIVATION_RELU, ACTIVATION_LINEAR, batchSize);
+    ddpg->critic = mlp_create(ddpg->actionSize + stateSize, rewardSize, criticDepth, criticLayers, ACTIVATION_RELU, ACTIVATION_LINEAR, batchSize);
     ddpg->actor_target_multi = mlp_multi_clone(ddpg->actor_multi);
     ddpg->criticTarget = mlp_clone(ddpg->critic);
 
@@ -133,8 +132,8 @@ DDPG *ddpg_multi_head_create(
 
     /* Initialize matrices for actors and critics. */
     ddpg->actorInput = matrix_create(batchSize, stateSize);
-    ddpg->criticInput = matrix_create(batchSize, actionSize + stateSize);
-    ddpg->actorErrors = matrix_create(batchSize, actionSize);
+    ddpg->criticInput = matrix_create(batchSize, ddpg->actionSize + stateSize);
+    ddpg->actorErrors = matrix_create(batchSize, ddpg->actionSize);
     ddpg->criticErrors = matrix_create(batchSize, rewardSize);
 
     /* Initialize batch capacity. */
@@ -142,7 +141,7 @@ DDPG *ddpg_multi_head_create(
     ddpg->batchIndices = malloc(batchSize * sizeof(int));
 
     /* The memory stores the current state, action, reward, next state, and the terminal flag. */
-    ddpg->memory = matrix_create(memorySize, actionSize + 2 * stateSize + rewardSize + 1);
+    ddpg->memory = matrix_create(memorySize, ddpg->actionSize + 2 * stateSize + rewardSize + 1);
     ddpg->memorySize = memorySize;  
     ddpg->memoryUsed = 0;
     ddpg->memoryIdx = 0;
@@ -305,7 +304,10 @@ void ddpg_train(DDPG *ddpg, double gamma)
         ddpg_data_copy(&MATRIX(ddpg->actorErrors, i, 0), &MATRIX(errors, i, 0), ddpg->actionSize);
 
     /* Continue the back-propagation through the actor. */
-    mlp_backpropagate(ddpg->actor, ddpg->actorErrors, LOSS_NONE);
+    if (ddpg->is_multi_head)
+        mlp_multi_backpropagate(ddpg->actor_multi, ddpg->actorErrors, LOSS_NONE);
+    else
+        mlp_backpropagate(ddpg->actor, ddpg->actorErrors, LOSS_NONE);
 
     /* Optimize the actor */
     if (ddpg->is_multi_head)

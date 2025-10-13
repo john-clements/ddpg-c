@@ -4,6 +4,7 @@
 
 
 //#define SINGLE_ENDED_OUT
+//#define MULTI_HEAD_EN
 
 #define EPISODE_LENGTH  200
 #define EPISODE_COUNT   200
@@ -27,6 +28,8 @@
 #endif
 
 //#define NOISE_EN
+
+#define MULTI_HEAD_LAYER_SIZE 2
 
 #define COLOR_NORMAL    "\033[0m"
 #define COLOR_RED       "\033[0;31m"
@@ -258,6 +261,10 @@ int main()
 #else
     double* noise               = NULL;
 #endif
+#ifdef MULTI_HEAD_EN
+    int     head_layers[MULTI_HEAD_LAYER_SIZE]  = {32, 16};
+#endif
+
 
     double  reward_quality[REWARD_SIZE]     = {0};
     int     highlight_vector[STATE_SIZE]    = {0};
@@ -269,7 +276,11 @@ int main()
         noise[i] = .01;
 #endif
 
+#ifdef MULTI_HEAD_EN
+    DDPG *ddpg = ddpg_multi_head_create(STATE_SIZE, ACTION_GROUP_SIZE, noise, LAYER_SIZE, layers, TARGET_CNT, MULTI_HEAD_LAYER_SIZE, head_layers, LAYER_SIZE, layers, 100000, 32, REWARD_SIZE);
+#else
     DDPG *ddpg = ddpg_create(STATE_SIZE, ACTION_SIZE, noise, LAYER_SIZE, layers, LAYER_SIZE, layers, 100000, 32, REWARD_SIZE);
+#endif
 
     for (int episode = 0; episode < EPISODE_COUNT; episode++)
     {
