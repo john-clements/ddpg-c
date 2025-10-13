@@ -3,13 +3,13 @@
 #include "ddpg.h"
 
 
-//#define SINGLE_ENDED_OUT
-//#define MULTI_HEAD_EN
+#define SINGLE_ENDED_OUT
+#define MULTI_HEAD_EN
 
 #define EPISODE_LENGTH  200
 #define EPISODE_COUNT   200
 
-#define TARGET_CNT      1
+#define TARGET_CNT      6
 
 #define STATE_SIZE      (2*TARGET_CNT)
 #define ACTION_SIZE     (3*TARGET_CNT)
@@ -17,7 +17,7 @@
 
 #define LAYER_SIZE      2
 
-#define STEP_CONTROL    0.025f
+#define STEP_CONTROL    0.1f
 
 #define MEASURE_QUALITY_START 25
 
@@ -252,7 +252,7 @@ void validate_target_seeker(DDPG* ddpg)
 
 int main()
 {
-    int     layers[LAYER_SIZE]  = {128, 64};
+    int     layers[LAYER_SIZE]  = {96, 96};
     double  state[STATE_SIZE]   = {0};
     double  reward[REWARD_SIZE] = {0};
     double* action              = NULL;
