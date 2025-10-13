@@ -4,10 +4,10 @@
 
 
 #define SINGLE_ENDED_OUT
-#define MULTI_HEAD_EN
+//#define MULTI_HEAD_EN
 
-#define EPISODE_LENGTH  200
-#define EPISODE_COUNT   200
+#define EPISODE_LENGTH  20
+#define EPISODE_COUNT   2000
 
 #define TARGET_CNT      6
 
@@ -252,7 +252,7 @@ void validate_target_seeker(DDPG* ddpg)
 
 int main()
 {
-    int     layers[LAYER_SIZE]  = {96, 96};
+    int     layers[LAYER_SIZE]  = {48, 48};
     double  state[STATE_SIZE]   = {0};
     double  reward[REWARD_SIZE] = {0};
     double* action              = NULL;
@@ -262,7 +262,7 @@ int main()
     double* noise               = NULL;
 #endif
 #ifdef MULTI_HEAD_EN
-    int     head_layers[MULTI_HEAD_LAYER_SIZE]  = {32, 16};
+    int     head_layers[MULTI_HEAD_LAYER_SIZE]  = {16, 8};
 #endif
 
 
