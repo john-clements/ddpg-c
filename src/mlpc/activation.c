@@ -1,17 +1,17 @@
 #include <math.h>
 #include "activation.h"
 
-double activation_linear(double x)
+float activation_linear(float x)
 {
     return x;
 }
 
-double activation_linearDeriv(double y)
+float activation_linearDeriv(float y)
 {
     return 1;
 }
 
-double activation_sigmoid(double x)
+float activation_sigmoid(float x)
 {
     if (x >= 0)
         return 1.0 / (1 + exp(-x));
@@ -19,22 +19,22 @@ double activation_sigmoid(double x)
         return 1.0 - (1.0 / 1 + exp(x));
 }
 
-double activation_sigmoidDeriv(double y)
+float activation_sigmoidDeriv(float y)
 {
     return y * (1 - y);
 }
 
-double activation_tanh(double x)
+float activation_tanh(float x)
 {
     return (exp(x) - exp(-x)) / (exp(x) + exp(-x));
 }
 
-double activation_tanhDeriv(double y)
+float activation_tanhDeriv(float y)
 {
     return 1 - y*y;
 }
 
-double activation_relu(double x)
+float activation_relu(float x)
 {
     if (x >= 0)
         return x;
@@ -42,7 +42,7 @@ double activation_relu(double x)
         return 0;
 }
 
-double activation_reluDeriv(double y)
+float activation_reluDeriv(float y)
 {
     if (y > 0)
         return 1;

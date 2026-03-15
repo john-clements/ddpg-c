@@ -22,7 +22,7 @@
 /**
  * The definition of a pointer to an activation function.
  */
-typedef double (*ActivationFunction)(double);
+typedef float (*ActivationFunction)(float);
 
 /**
  * \returns the pointer to the activation function that corresponds to the

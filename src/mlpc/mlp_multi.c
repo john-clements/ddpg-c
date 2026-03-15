@@ -121,9 +121,9 @@ Matrix mlp_multi_feedforward(MLP_MULTI *mlp, Matrix x)
     return mlp->output;
 }
 
-double mlp_multi_backpropagate(MLP_MULTI *mlp, Matrix y, int lossFunctionCode)
+float mlp_multi_backpropagate(MLP_MULTI *mlp, Matrix y, int lossFunctionCode)
 {
-    double loss  = 0;
+    float loss  = 0;
     Matrix y_sub = matrix_create(mlp->input->batchSize, mlp->head[0]->output.columns); // head_output_size
     Matrix y_int = matrix_create(mlp->input->batchSize, mlp->input->output.columns);
 //printf("%d %d %d\n", mlp->head[0]->output.columns, mlp->head_output_size, mlp->input->output.columns);

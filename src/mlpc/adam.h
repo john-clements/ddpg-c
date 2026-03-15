@@ -12,37 +12,37 @@ typedef struct Adam
     /**
      * Step counter, that increases each time the MLP is being optimized.
      */
-    double t;
+    float t;
 
     /**
      * The learning rate parameter alpha. Default value: 0.001.
      */
-    double alpha;
+    float alpha;
 
     /**
      * The decay rate parameter beta1. default value: 0.9.
      */
-    double beta1;
+    float beta1;
 
     /**
      * The decay rate parameter beta2. default value: 0.999.
      */
-    double beta2;
+    float beta2;
 
     /**
      * Decay rate beta1 at step t.
      */
-    double beta1t;
+    float beta1t;
 
     /**
      * Decay rate beta2 at step t.
      */
-    double beta2t;
+    float beta2t;
 
     /**
      * The epsilon parameter. Default value: 1e-7.
      */
-    double epsilon;
+    float epsilon;
 
     /**
      * The number of layers within the MLP, including the output layer. In
@@ -73,6 +73,11 @@ typedef struct Adam
      * matrix for each layer.
      */
     Matrix *vb;
+
+#ifdef OPEN_CL_EN
+    open_cl_ctx* ocl;
+#endif
+
 } Adam;
 
 /**
@@ -95,7 +100,7 @@ void adam_destroy(Adam *adam);
  * beta1, beta2, and epsilon. This function should be called immediately upon
  * creation, before the structure is used for the first time.
  */
-void adam_set(Adam *adam, double alpha, double beta1, double beta2, double epsilon);
+void adam_set(Adam *adam, float alpha, float beta1, float beta2, float epsilon);
 
 /**
  * Resets the time steps to 0. This means reseting all the time-sensitive

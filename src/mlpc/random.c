@@ -12,7 +12,7 @@ int deepc_random_int(int min, int max)
     return rand() % (max - min + 1) + min;
 }
 
-double deepc_random_double(double min, double max)
+float deepc_random_float(float min, float max)
 {
-    return ((double)rand() / RAND_MAX) * (max - min) + min;
+    return ((float)rand() / RAND_MAX) * (max - min) + min;
 }

@@ -22,6 +22,15 @@ Adam *adam_create(MLP *mlp)
         adam->mb[i] = matrix_clone(mlp->layers[i].biases);
         adam->vw[i] = matrix_clone(mlp->layers[i].weights);
         adam->vb[i] = matrix_clone(mlp->layers[i].biases);
+
+#ifdef OPEN_CL_EN
+        adam->ocl = &mlp->ocl;
+
+        matrix_cl_create(adam->ocl, &adam->mw[i]);
+        matrix_cl_create(adam->ocl, &adam->mb[i]);
+        matrix_cl_create(adam->ocl, &adam->vw[i]);
+        matrix_cl_create(adam->ocl, &adam->vb[i]);
+#endif
     }
 
     adam_reset(adam);
@@ -33,10 +42,10 @@ Adam *adam_create(MLP *mlp)
 
 Adam *adam_read(FILE *file)
 {
-    double parameters[6];
+    float parameters[6];
     int depth;
 
-    if (fread(parameters, sizeof(double), 6, file) != 6)
+    if (fread(parameters, sizeof(float), 6, file) != 6)
         return NULL;
     
     if (fread(&depth, sizeof(int), 1, file) != 1)
@@ -100,22 +109,22 @@ Adam *adam_read(FILE *file)
 
 int adam_write(Adam *adam, FILE *file)
 {
-    if (fwrite(&adam->alpha, sizeof(double), 1, file) != 1)
+    if (fwrite(&adam->alpha, sizeof(float), 1, file) != 1)
         return -1;
     
-    if (fwrite(&adam->beta1, sizeof(double), 1, file) != 1)
+    if (fwrite(&adam->beta1, sizeof(float), 1, file) != 1)
         return -1;
     
-    if (fwrite(&adam->beta2, sizeof(double), 1, file) != 1)
+    if (fwrite(&adam->beta2, sizeof(float), 1, file) != 1)
         return -1;
     
-    if (fwrite(&adam->beta1t, sizeof(double), 1, file) != 1)
+    if (fwrite(&adam->beta1t, sizeof(float), 1, file) != 1)
         return -1;
     
-    if (fwrite(&adam->beta2t, sizeof(double), 1, file) != 1)
+    if (fwrite(&adam->beta2t, sizeof(float), 1, file) != 1)
         return -1;
     
-    if (fwrite(&adam->epsilon, sizeof(double), 1, file) != 1)
+    if (fwrite(&adam->epsilon, sizeof(float), 1, file) != 1)
         return -1;
     
     if (fwrite(&adam->depth, sizeof(int), 1, file) != 1)
@@ -145,6 +154,13 @@ void adam_destroy(Adam *adam)
         matrix_destroy(adam->mb[i]);
         matrix_destroy(adam->vw[i]);
         matrix_destroy(adam->vb[i]);
+
+#ifdef OPEN_CL_EN
+        matrix_cl_dystroy(adam->ocl, &adam->mw[i]);
+        matrix_cl_dystroy(adam->ocl, &adam->mb[i]);
+        matrix_cl_dystroy(adam->ocl, &adam->vw[i]);
+        matrix_cl_dystroy(adam->ocl, &adam->vb[i]);
+#endif
     }
 
     free(adam->mw);
@@ -155,7 +171,7 @@ void adam_destroy(Adam *adam)
     free(adam);
 }
 
-void adam_set(Adam *adam, double alpha, double beta1, double beta2, double epsilon)
+void adam_set(Adam *adam, float alpha, float beta1, float beta2, float epsilon)
 {
     adam->alpha = alpha;
     adam->beta1t = adam->beta1 = beta1;
@@ -175,6 +191,13 @@ void adam_reset(Adam *adam)
         matrix_clear(adam->mb[i]);
         matrix_clear(adam->vw[i]);
         matrix_clear(adam->vb[i]);
+
+#ifdef OPEN_CL_EN
+        matrix_cl_copy_to_device(adam->ocl, &adam->mw[i]);
+        matrix_cl_copy_to_device(adam->ocl, &adam->mb[i]);
+        matrix_cl_copy_to_device(adam->ocl, &adam->vw[i]);
+        matrix_cl_copy_to_device(adam->ocl, &adam->vb[i]);
+#endif
     }   
 }
 
@@ -193,7 +216,11 @@ void adam_optimize(MLP *mlp, Adam *adam)
         Matrix *vw = &adam->vw[i];
         Matrix *vb = &adam->vb[i];
 
-        double mw1, mb1, vw1, vb1;
+#ifdef OPEN_CL_EN
+        cl_adam_optimize(adam->ocl, w, mw, vw, gw, adam->beta1t, adam->beta2t);
+        cl_adam_optimize(adam->ocl, b, mb, vb, gb, adam->beta1t, adam->beta2t);
+#else
+        float mw1, mb1, vw1, vb1;
 
         for (int row = 0; row < w->rows; row++)
         {
@@ -224,6 +251,7 @@ void adam_optimize(MLP *mlp, Adam *adam)
                 b->data[idx] -= adam->alpha * (mb1 / (sqrt(vb1) + adam->epsilon));
             }
         }
+#endif
     }
 
     adam->beta1t *= adam->beta1;

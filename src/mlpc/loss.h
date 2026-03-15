@@ -7,7 +7,7 @@
  * 
  * A loss function is of the format:
  * 
- *     double lossFunction(Matrix yhat, Matrix y, Matrix error)
+ *     float lossFunction(Matrix yhat, Matrix y, Matrix error)
  * 
  * - `yhat` (samples × output values):
  *     The predicted values (network output) for all samples in the batch.
@@ -40,7 +40,7 @@ typedef struct Matrix Matrix;
 /**
  * Definition of the pointer to a loss function.
  */
-typedef double (*LossFunction)(Matrix yhat, Matrix y, Matrix error);
+typedef float (*LossFunction)(Matrix yhat, Matrix y, Matrix error);
 
 /**
  * \returns The pointer to the loss function with the given `code`.

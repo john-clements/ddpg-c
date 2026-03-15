@@ -31,12 +31,12 @@ typedef struct DDPG
      * A preallocated array to store and return the action determined by the
      * actor.
      */
-    double *action;
+    float *action;
 
     /**
      * A array that stores the user-defined noise level for each action signal.
      */
-    double *noise;
+    float *noise;
 
     /**
      * The actor neural network.
@@ -123,7 +123,7 @@ typedef struct DDPG
     /**
      * The preallocated memory to store observations. An observations is defined
      * as a tuple (state, action, reward, next state, terminal). The reward
-     * and the terminal flag each take up one variable of type double. The size
+     * and the terminal flag each take up one variable of type float. The size
      * of one observation is therefore equal to `2 * stateSize + actionSize + 2`.
      */
     Matrix memory;
@@ -131,7 +131,7 @@ typedef struct DDPG
     /**
      * A preallocated array that stores the last observed state.
      */
-    double *lastState;
+    float *lastState;
 
     /**
      * A flag that determines if the `lastState` variable stores a valid state.
@@ -186,7 +186,7 @@ void ddpg_init();
 DDPG *ddpg_create(
     int stateSize,
     int actionSize,
-    double *noise,
+    float *noise,
     int actorDepth,
     int *actorLayers,
     int criticDepth,
@@ -198,7 +198,7 @@ DDPG *ddpg_create(
 DDPG *ddpg_multi_head_create(
     int stateSize,
     int actionSize, // Actions per head
-    double *noise,
+    float *noise,
     int actorDepth,
     int *actorLayers,
     int ActionSetCnt,
@@ -236,7 +236,7 @@ void ddpg_destroy(DDPG *ddpg);
  * The flag that determines whether this observation is the last one in the
  * current episode. It is set to 1 if it is the terminal state, otherwise to 0.
  */
-void ddpg_observe(DDPG *ddpg, double *action, double* reward, double *state, int terminal);
+void ddpg_observe(DDPG *ddpg, float *action, float* reward, float *state, int terminal);
 
 /**
  * Returns the action that the given `ddpg` proposes to execute in the given
@@ -245,19 +245,20 @@ void ddpg_observe(DDPG *ddpg, double *action, double* reward, double *state, int
  * 
  * * \returns An array of output signals of length `actionSize`.
  */
-double *ddpg_action(DDPG *ddpg, double *state);
+float *ddpg_action(DDPG *ddpg, float *state);
 
 /**
  * Train the given `ddpg` on one randomly selected batch from the memory. The
  * size of the batch is determined by the `batchSize` parameter, given during
  * the creation of `ddpg`.
  */
-void ddpg_train(DDPG *ddpg, double gamma);
+void ddpg_train(DDPG *ddpg, float gamma);
 
 /**
  * Updates the target actor and critic networks.
  */
 void ddpg_update_target_networks(DDPG *ddpg);
+void ddpg_soft_update_target_networks(DDPG *ddpg, float tau);
 
 /**
  * Signals that a new episode has been started. This invalidates the currently

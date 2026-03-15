@@ -12,7 +12,7 @@ void ddpg_init()
 DDPG *ddpg_create(
     int stateSize,
     int actionSize,
-    double *noise,
+    float *noise,
     int actorDepth,
     int *actorLayers,
     int criticDepth,
@@ -26,19 +26,20 @@ DDPG *ddpg_create(
     ddpg->actionSize = actionSize;
 
     /* Action returned. */
-    ddpg->action = malloc(actionSize * sizeof(double));
+    ddpg->action = malloc(actionSize * sizeof(float));
     
     /* If noise is NULL, no noise is applied to actions. */
     ddpg->noise = NULL;
     if (noise != NULL)
     {
-        ddpg->noise = malloc(actionSize * sizeof(double));
+        ddpg->noise = malloc(actionSize * sizeof(float));
         for (int i = 0; i < actionSize; i++)
             ddpg->noise[i] = noise[i];
     }
-    
+
     /* The MLPC library is used to construct the actor and the critic. */
     ddpg->actor = mlp_create(stateSize, actionSize, actorDepth, actorLayers, ACTIVATION_RELU, ACTIVATION_TANH, batchSize);
+
     ddpg->critic = mlp_create(actionSize + stateSize, rewardSize, criticDepth, criticLayers, ACTIVATION_RELU, ACTIVATION_LINEAR, batchSize);
     ddpg->actorTarget = mlp_clone(ddpg->actor);
     ddpg->criticTarget = mlp_clone(ddpg->critic);
@@ -46,6 +47,8 @@ DDPG *ddpg_create(
     /* Initialize the Adam optimizers. */
     ddpg->actorAdam = adam_create(ddpg->actor);
     ddpg->criticAdam = adam_create(ddpg->critic);
+
+    adam_set(ddpg->actorAdam, 0.0001, 0.9, 0.999, 1e-7);
 
     /* Initialize matrices for actors and critics. */
     ddpg->actorInput = matrix_create(batchSize, stateSize);
@@ -64,7 +67,7 @@ DDPG *ddpg_create(
     ddpg->memoryIdx = 0;
 
     /* Last observed state. */
-    ddpg->lastState = malloc(ddpg->stateSize * sizeof(double));
+    ddpg->lastState = malloc(ddpg->stateSize * sizeof(float));
     ddpg->lastStateValid = 0;
 
     ddpg->rewardSize = rewardSize;
@@ -77,7 +80,7 @@ DDPG *ddpg_create(
 DDPG *ddpg_multi_head_create(
     int stateSize,
     int actionSize, // Actions per head
-    double *noise,
+    float *noise,
     int actorDepth,
     int *actorLayers,
     int ActionSetCnt,
@@ -95,13 +98,13 @@ DDPG *ddpg_multi_head_create(
     ddpg->actionSize = actionSize*ActionSetCnt;
 
     /* Action returned. */
-    ddpg->action = malloc(ddpg->actionSize * sizeof(double));
+    ddpg->action = malloc(ddpg->actionSize * sizeof(float));
     
     /* If noise is NULL, no noise is applied to actions. */
     ddpg->noise = NULL;
     if (noise != NULL)
     {
-        ddpg->noise = malloc(ddpg->actionSize * sizeof(double));
+        ddpg->noise = malloc(ddpg->actionSize * sizeof(float));
         for (int i = 0; i < ddpg->actionSize; i++)
             ddpg->noise[i] = noise[i];
     }
@@ -118,7 +121,7 @@ DDPG *ddpg_multi_head_create(
                                          headDepth,
                                          headLayers);
 
-    ddpg->critic = mlp_create(ddpg->actionSize + stateSize, rewardSize, criticDepth, criticLayers, ACTIVATION_RELU, ACTIVATION_LINEAR, batchSize);
+    ddpg->critic = mlp_create(ddpg->actionSize + stateSize, rewardSize, criticDepth, criticLayers, ACTIVATION_RELU, ACTIVATION_TANH, batchSize);
     ddpg->actor_target_multi = mlp_multi_clone(ddpg->actor_multi);
     ddpg->criticTarget = mlp_clone(ddpg->critic);
 
@@ -147,7 +150,7 @@ DDPG *ddpg_multi_head_create(
     ddpg->memoryIdx = 0;
 
     /* Last observed state. */
-    ddpg->lastState = malloc(ddpg->stateSize * sizeof(double));
+    ddpg->lastState = malloc(ddpg->stateSize * sizeof(float));
     ddpg->lastStateValid = 0;
 
     ddpg->rewardSize = rewardSize;
@@ -161,12 +164,28 @@ void ddpg_destroy(DDPG *ddpg)
 {
     free(ddpg->action);
 
-    mlp_destroy(ddpg->actor);
+    if (ddpg->is_multi_head)
+        mlp_multi_destroy(ddpg->actor_multi);
+    else
+        mlp_destroy(ddpg->actor);
+
     mlp_destroy(ddpg->critic);
-    mlp_destroy(ddpg->actorTarget);
+
+    if (ddpg->is_multi_head)
+        mlp_multi_destroy(ddpg->actor_target_multi);
+    else
+        mlp_destroy(ddpg->actorTarget);
+
     mlp_destroy(ddpg->criticTarget);
 
-    adam_destroy(ddpg->actorAdam);
+    if (ddpg->is_multi_head)
+    {
+        //for (int i = 0; i < ddpg->actor_multi->head_cnt; i++)
+        //    adam_destroy(ddpg->actor_multi_adam[i]);
+    }
+    else
+        adam_destroy(ddpg->actorAdam);
+
     adam_destroy(ddpg->criticAdam);
 
     matrix_destroy(ddpg->actorInput);
@@ -185,13 +204,13 @@ void ddpg_destroy(DDPG *ddpg)
     free(ddpg);
 }
 
-void ddpg_data_copy(double *dst, double *src, int length)
+void ddpg_data_copy(float *dst, float *src, int length)
 {
     for (int i = 0; i < length; i++)
         *(dst++) = *(src++);
 }
 
-void ddpg_observe(DDPG *ddpg, double *action, double* reward, double *state, int terminal)
+void ddpg_observe(DDPG *ddpg, float *action, float* reward, float *state, int terminal)
 {
     /* If no state has yet been observed, just store the state. */
     if (!ddpg->lastStateValid)
@@ -218,7 +237,7 @@ void ddpg_observe(DDPG *ddpg, double *action, double* reward, double *state, int
         ddpg->memoryUsed++;
 }
 
-double *ddpg_action(DDPG *ddpg, double *state)
+float *ddpg_action(DDPG *ddpg, float *state)
 {
     /* The actor expects a batch, but we only need to process one instance. We
        use only the first sample in the batch and set the rest to 0. */
@@ -240,7 +259,7 @@ double *ddpg_action(DDPG *ddpg, double *state)
         /* If action noise is set, apply it to the individual output signals. */
         if (ddpg->noise != NULL)
         {
-            ddpg->action[i] += deepc_random_double(-ddpg->noise[i], ddpg->noise[i]);
+            ddpg->action[i] += deepc_random_float(-ddpg->noise[i], ddpg->noise[i]);
 
             /* Clip the action to interval [-1, 1]. */
             if (ddpg->action[i] > 1)
@@ -253,7 +272,7 @@ double *ddpg_action(DDPG *ddpg, double *state)
     return ddpg->action;
 }
 
-void ddpg_train(DDPG *ddpg, double gamma)
+void ddpg_train(DDPG *ddpg, float gamma)
 {
     int i = 0;
 
@@ -293,7 +312,7 @@ void ddpg_train(DDPG *ddpg, double gamma)
     {
         for (int j = 0; j < ddpg->rewardSize; j++)
         {
-            MATRIX(ddpg->criticErrors, i, j) = MATRIX(criticOutput, i, j) - MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + j));
+            MATRIX(ddpg->criticErrors, i, j) = -1.0f / ((float)ddpg->rewardSize);
         }
     }
     mlp_backpropagate(ddpg->critic, ddpg->criticErrors, LOSS_NONE);
@@ -352,11 +371,11 @@ void ddpg_train(DDPG *ddpg, double gamma)
     /* Compute the critic errors using the Bellman equation. */
     for (int i = 0; i < ddpg->batchSize; i++)
     {
-        double terminal = MATRIX(ddpg->memory, ddpg->batchIndices[i], (2 * ddpg->stateSize + ddpg->actionSize + ddpg->rewardSize));
+        float terminal = MATRIX(ddpg->memory, ddpg->batchIndices[i], (2 * ddpg->stateSize + ddpg->actionSize + ddpg->rewardSize));
 
         for (int j = 0; j < ddpg->rewardSize; j++)
         {
-            double reward = MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + j));
+            float reward = MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + j));
 
             if (terminal > 0)
                 MATRIX(ddpg->criticErrors, i, j) = MATRIX(criticOutput, i, j);
@@ -379,6 +398,12 @@ void ddpg_update_target_networks(DDPG *ddpg)
     else
         mlp_copy(ddpg->actorTarget, ddpg->actor);
     mlp_copy(ddpg->criticTarget, ddpg->critic);
+}
+
+void ddpg_soft_update_target_networks(DDPG *ddpg, float tau)
+{
+    mlp_soft_copy(ddpg->actorTarget, ddpg->actor, tau);
+    mlp_soft_copy(ddpg->criticTarget, ddpg->critic, tau);
 }
 
 void ddpg_new_episode(DDPG *ddpg)

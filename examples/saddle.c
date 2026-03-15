@@ -1,14 +1,3 @@
-/**
- * \file   saddle.c
- * \author Domen Šoberl
- * \date   January 2023
- * \brief  Training a saddle function.
- * 
- * This is a simple example of how to use the MLPC library. We are using
- * a neural network with one hidden layer of 64 neurons to learn the saddle
- * function y = x1^2 - x2^2.
- */
-
 #include <stdio.h>
 #include "mlp.h"
 #include "adam.h"
@@ -17,7 +6,7 @@
 /**
  * A definition of the saddle function.
  */
-double f(double x1, double x2)
+float f(float x1, float x2)
 {
     return x1*x1 - x2*x2;
 }
@@ -64,7 +53,7 @@ int main()
     Adam *adam = adam_create(mlp);
 
     /* Train for 10000 steps. */
-    double loss = 0;
+    float loss = 0;
     for (int i = 1; i <= 10000; i++)
     {
         /* Create a random batch of 32 samples. */

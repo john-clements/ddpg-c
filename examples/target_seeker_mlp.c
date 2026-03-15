@@ -48,10 +48,10 @@ const char* g_color_map[] = {
     COLOR_GREEN,
 };
 
-int vector_largest_index(double* vector, int vector_size)
+int vector_largest_index(float* vector, int vector_size)
 {
     int     max_index   = 0;
-    double  max_size    = vector[0];
+    float  max_size    = vector[0];
 
     for (int i = 1; i < vector_size; i++)
     {
@@ -65,9 +65,9 @@ int vector_largest_index(double* vector, int vector_size)
     return max_index;
 }
 
-int is_double_zero(float val)
+int is_float_zero(float val)
 {
-    double epsilon = 0.001f; // A small tolerance value
+    float epsilon = 0.001f; // A small tolerance value
 
     if (fabs(val) < epsilon)
         return 1;
@@ -75,7 +75,7 @@ int is_double_zero(float val)
     return 0;
 }
 
-double double_constrain(float val)
+float float_constrain(float val)
 {
     int val_int = (int)val;
 
@@ -83,15 +83,15 @@ double double_constrain(float val)
 
     int dec_int_mult = ((int)val)/(STEP_CONTROL*10000);
 
-    return ((double)val_int) + ((double)dec_int_mult)*(STEP_CONTROL*10);
+    return ((float)val_int) + ((float)dec_int_mult)*(STEP_CONTROL*10);
 }
 
 #define STEP_RANGE (1/STEP_CONTROL)
-double random_target()
+float random_target()
 {
     int x = deepc_random_int(0, STEP_RANGE);
 
-    return STEP_CONTROL * (double)x;
+    return STEP_CONTROL * (float)x;
 }
 
 #define ACTION_UP   0
@@ -100,7 +100,7 @@ double random_target()
 
 //const char* g_action_str[ACTION_GROUP_SIZE] = {"UP", "DOWN", "IDLE"};
 
-int get_action_index(double* action)
+int get_action_index(float* action)
 {
 #ifdef SINGLE_ENDED_OUT
     // Trinary parsing
@@ -121,13 +121,13 @@ int get_action_index(double* action)
 #endif
 }
 
-int is_action_correct(double* state, double* action)
+int is_action_correct(float* state, float* action)
 {
-    double diff = state[0] - state[1];
+    float diff = state[0] - state[1];
 
     int target_index = get_action_index(action);
 
-    if (is_double_zero(diff))
+    if (is_float_zero(diff))
         diff = 0.0f;
 
     if (target_index == ACTION_UP)
@@ -142,14 +142,14 @@ int is_action_correct(double* state, double* action)
     }
     else if (target_index == ACTION_IDLE)
     {
-        if (is_double_zero(diff))
+        if (is_float_zero(diff))
             return 1;
     }
 
     return 0;
 }
 
-double state_step(double* state, double* action)
+float state_step(float* state, float* action)
 {
     int target_index = get_action_index(action);
 
@@ -163,20 +163,20 @@ double state_step(double* state, double* action)
     else if (state[0] > 1.0f)
         state[0] = 1.0f;
 
-    double diff = state[0] - state[1];
+    float diff = state[0] - state[1];
 
-    if (is_double_zero(diff))
+    if (is_float_zero(diff))
         diff = 0.0f;
 
     return -fabs(diff);
 }
 
-void set_action(double* state, double* action)
+void set_action(float* state, float* action)
 {
-    double diff = state[0] - state[1];
+    float diff = state[0] - state[1];
 
 #ifdef SINGLE_ENDED_OUT
-    if (is_double_zero(diff))
+    if (is_float_zero(diff))
     {
         action[0] = 0.0f;
     }
@@ -190,7 +190,7 @@ void set_action(double* state, double* action)
         action[0] = -1.0f;
     }
 #else
-    if (is_double_zero(diff))
+    if (is_float_zero(diff))
     {
         action[0] = 0.0f;
         action[1] = 0.0f;
@@ -211,7 +211,7 @@ void set_action(double* state, double* action)
 #endif
 }
 
-void print_double_vector(double* vector, int vector_size)
+void print_float_vector(float* vector, int vector_size)
 {
     printf("[");
     for (int i = 0; i < vector_size - 1; i++)
@@ -219,7 +219,7 @@ void print_double_vector(double* vector, int vector_size)
     printf("%f]", vector[vector_size - 1]);
 }
 
-void print_double_vector_short(double* vector, int vector_size)
+void print_float_vector_short(float* vector, int vector_size)
 {
     printf("[");
     for (int i = 0; i < vector_size - 1; i++)
@@ -227,7 +227,7 @@ void print_double_vector_short(double* vector, int vector_size)
     printf("%.3f]", vector[vector_size - 1]);
 }
 
-void print_double_vector_highlight(double* vector, int vector_size, int* highlight_vector)
+void print_float_vector_highlight(float* vector, int vector_size, int* highlight_vector)
 {
     int i = 0;
     printf("[");
@@ -240,18 +240,18 @@ void print_double_vector_highlight(double* vector, int vector_size, int* highlig
 #define TEST_TRIALS 10
 void validate_target_seeker(MLP* mlp)
 {
-    double  state[STATE_SIZE]               = {0};
-    double  reward[REWARD_SIZE]             = {0};
-    double  action[ACTION_SIZE]             = {0};
-    double  reward_quality[REWARD_SIZE]     = {0};
+    float  state[STATE_SIZE]               = {0};
+    float  reward[REWARD_SIZE]             = {0};
+    float  action[ACTION_SIZE]             = {0};
+    float  reward_quality[REWARD_SIZE]     = {0};
     int     highlight_vector[STATE_SIZE]    = {0};
-    double  correct_action[ACTION_SIZE]     = {0};
+    float  correct_action[ACTION_SIZE]     = {0};
 
     Matrix x = matrix_create(1, STATE_SIZE);
 
     for (int trial = 0; trial < TEST_TRIALS; trial++)
     {
-        double episode_reward[REWARD_SIZE] = {0};
+        float episode_reward[REWARD_SIZE] = {0};
 
         for (int i = 0; i < TARGET_CNT; i++)
         {
@@ -289,13 +289,13 @@ void validate_target_seeker(MLP* mlp)
                 episode_reward[i] += reward[i];
 
             printf("%3d:%3d -> ", trial, step);
-            print_double_vector(reward, REWARD_SIZE);
+            print_float_vector(reward, REWARD_SIZE);
             printf(" -> ");
-            print_double_vector_highlight(state, STATE_SIZE, highlight_vector);
+            print_float_vector_highlight(state, STATE_SIZE, highlight_vector);
             printf(" -> ");
-            print_double_vector_short(action, ACTION_SIZE);
+            print_float_vector_short(action, ACTION_SIZE);
             printf(" -> ");
-            print_double_vector_short(correct_action, ACTION_SIZE);
+            print_float_vector_short(correct_action, ACTION_SIZE);
             printf("\n");
         }
 
@@ -303,7 +303,7 @@ void validate_target_seeker(MLP* mlp)
             episode_reward[i] /= 25;
 
         printf("%d -> ", trial);
-        print_double_vector(episode_reward, REWARD_SIZE);
+        print_float_vector(episode_reward, REWARD_SIZE);
         printf("\n");
 
         for (int i = 0; i < REWARD_SIZE; i++)
@@ -311,7 +311,7 @@ void validate_target_seeker(MLP* mlp)
     }
 
     printf("Final Reward Quality -> ");
-    print_double_vector(reward_quality, REWARD_SIZE);
+    print_float_vector(reward_quality, REWARD_SIZE);
     printf("\n");
 
     matrix_destroy(x);
@@ -320,8 +320,8 @@ void validate_target_seeker(MLP* mlp)
 int main()
 {
     int     layers[LAYER_SIZE]              = {128, 64};
-    double  state[STATE_SIZE*BATCH_SIZE]    = {0};
-    double  action[ACTION_SIZE*BATCH_SIZE]  = {0};
+    float  state[STATE_SIZE*BATCH_SIZE]    = {0};
+    float  action[ACTION_SIZE*BATCH_SIZE]  = {0};
 
     mlp_init();
 
@@ -333,7 +333,7 @@ int main()
 
     Adam *adam = adam_create(mlp);
 
-    double loss = 0;
+    float loss = 0;
 
     for (int episode = 0; episode < EPISODE_COUNT; episode++)
     {

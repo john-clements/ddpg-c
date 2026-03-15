@@ -1,15 +1,3 @@
-/**
- * \file   pendulum.c
- * \author Domen Šoberl
- * \date   January 2023
- * \brief  Solving the pendulum swing up problem.
- * 
- * This is an example of how to use the DDPGC library, demonstrated on the
- * well-known pendulum swing up problem, which can also be found in the
- * Gymnasium reinforcement learning collection for Python. This program does
- * not do any pendulum rendering, just computes the states.
- */
-
 #include <math.h>
 #include <stdio.h>
 #include "ddpg.h"
@@ -26,21 +14,21 @@
 #define EPISODE_COUNT 100
 #define STARTING_EPISODES 3
 
-/* We store the states {theta, thetadot} within an array of type double. */
-double state[2] = {0, 0};
+/* We store the states {theta, thetadot} within an array of type float. */
+float state[2] = {0, 0};
 
 /* Similar for actions, but it is an array with only one element. */
-double action[1] = {0};
+float action[1] = {0};
 
 /* Simulate the motion of the pendulum and return the reward of the current state. */
-double pendulum_step(double *state, double action)
+float pendulum_step(float *state, float action)
 {
     /* Get the current state. */
-    double theta = state[0];
-    double thetadot = state[1];
+    float theta = state[0];
+    float thetadot = state[1];
 
     /* Compute the cost of the current state. */
-    double cost = pow(theta, 2) + 0.1 * pow(thetadot, 2) + 0.001 * pow(action, 2);
+    float cost = pow(theta, 2) + 0.1 * pow(thetadot, 2) + 0.001 * pow(action, 2);
 
     /* The new pendulum velocity. */
     thetadot += (3 * G / (2 * LENGTH) * sin(theta) + 3.0 / (MASS * pow(LENGTH, 2)) * action) * DT;
@@ -82,7 +70,7 @@ int main()
         - Train on batches of 32 samples.
     */
     int layers[2] = {128, 64};
-    double noise[1] = {0.01};
+    float noise[1] = {0.01};
     DDPG *ddpg = ddpg_create(2, 1, noise, 2, layers, 2, layers, 100000, 32, 1);
 
     /* Try to load the pre-trained model. */
@@ -95,10 +83,10 @@ int main()
     for (int episode = 0; episode < EPISODE_COUNT; episode++)
     {
         /* Measure the average episode reward. */
-        double episodeReward = 0;
+        float episodeReward = 0;
 
         /* Reset the pendulum state. */
-        state[0] = deepc_random_double(-PI, PI);
+        state[0] = deepc_random_float(-PI, PI);
         state[1] = 0;
 
         /* Start a new DDPG episode. */
@@ -109,13 +97,13 @@ int main()
         {
             /* For the first few episodes only do random exploration. */
             if (episode < STARTING_EPISODES)
-                action[0] = deepc_random_double(-1, 1);
+                action[0] = deepc_random_float(-1, 1);
             else
                 action[0] = *ddpg_action(ddpg, state);
 
             /* Simulate one step of pendulum motion. Scale the action to the
             [-2, 2] interval, which is the action range for this domain. */
-            double reward = pendulum_step(state, 2 * action[0]);
+            float reward = pendulum_step(state, 2 * action[0]);
 
             /* Record the received reward. */
             episodeReward += reward;

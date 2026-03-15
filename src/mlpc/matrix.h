@@ -4,15 +4,56 @@
 #include <stdio.h>
 #include "activation.h"
 
+#define OPEN_CL_EN
+#ifdef OPEN_CL_EN
+#define CL_TARGET_OPENCL_VERSION 210 // Target OpenCL 2.1
+#include <CL/cl.h>
+
+#define OCL_THRESHOLD   (256*256)
+#endif
+
 /**
  * A macro for an easier access to the (`row`, `col`) element.
  */
 #define MATRIX(matrix, row, col) \
     matrix.data[row * matrix.columns + col]
 
+#ifdef OPEN_CL_EN
+typedef struct open_cl_ctx
+{
+    cl_platform_id      platform_id;
+    cl_device_id        device_id;
+    cl_uint             num_platforms;
+    cl_uint             num_devices;
+    cl_int              ret;
+    cl_context          context;
+    cl_command_queue    command_queue;
+
+    cl_program          program;
+    cl_kernel           kernel_vector_add;
+    cl_kernel           kernel_vector_multiply;
+    cl_kernel           kernel_matrix_multiply;
+    cl_kernel           kernel_matrix_multiply_transpose;
+    cl_kernel           kernel_matrix_multiply_add; // matrix_ff linear
+    cl_kernel           kernel_matrix_ff_relu;
+    cl_kernel           kernel_matrix_ff_tanh;
+
+    cl_kernel           kernel_matrix_transpose;
+    cl_kernel           kernel_matrix_transpose_apply_anti_linear;
+    cl_kernel           kernel_matrix_transpose_apply_anti_tanh;
+    cl_kernel           kernel_matrix_transpose_apply_anti_relu;
+    cl_kernel           kernel_matrix_sum_rows_transpose_p1;
+    cl_kernel           kernel_matrix_sum_rows_transpose_p2;
+
+    cl_kernel           kernel_adam_optimize;
+
+    int                 cl_ctx_init;
+} open_cl_ctx;
+#endif
+
 /**
  * The matrix structure contains a pointer to the heap-allocated array of type
- * double. The number of rows and columns are stored as integers. This structure
+ * float. The number of rows and columns are stored as integers. This structure
  * would typically be passed by value, which means the the shape information is
  * copied through stack, while the contents of the matrix remains on the heap.
  */
@@ -29,10 +70,35 @@ typedef struct Matrix {
 
     /**
      * The pointer to the data - an array that contains rows * columns values
-     * of type double.
+     * of type float.
      */
-    double *data;
+    float *data;
+
+#ifdef OPEN_CL_EN
+    int total_size;
+    cl_mem mem_obj;
+#endif
 } Matrix;
+
+#ifdef OPEN_CL_EN
+int open_cl_test();
+
+int open_cl_init(open_cl_ctx* ctx);
+int matrix_cl_create(open_cl_ctx* ctx, Matrix* matrix);
+int matrix_cl_dystroy(open_cl_ctx* ctx, Matrix* matrix);
+int matrix_cl_copy_to_device(open_cl_ctx* ctx, Matrix* A);
+int matrix_cl_copy_to_host(open_cl_ctx* ctx, Matrix* A);
+//int matrix_cl_add(Matrix* dst, Matrix* src);
+int matrix_cl_odot(open_cl_ctx* ctx, Matrix* dst, Matrix* src);
+int matrix_cl_multiply(open_cl_ctx* ctx, Matrix* A, Matrix* B, Matrix* result);
+int matrix_cl_multiply_transpose(open_cl_ctx* ctx, Matrix* A, Matrix* B, Matrix* result, int batch_size);
+//int matrix_cl_multiply_add(Matrix* A, Matrix* B, Matrix* add, Matrix* result);
+int matrix_cl_ff(open_cl_ctx* ctx, Matrix* A, Matrix* B, Matrix* add, Matrix* result, int activation);
+int matrix_cl_transpose(open_cl_ctx* ctx, Matrix* A, Matrix* result);
+int matrix_cl_transpose_apply(open_cl_ctx* ctx, Matrix* A, Matrix* result, int anti_activation);
+int matrix_cl_sum_rows_transpose(open_cl_ctx* ctx, Matrix* matrix, Matrix* result, int batch_size);
+int cl_adam_optimize(open_cl_ctx* ctx, Matrix* weights, Matrix* mw, Matrix* vw, Matrix* gradient, float beta1t, float beta2t);
+#endif
 
 /**
  * Creates a matrix with the given shape. Every matrix created with this
@@ -99,16 +165,17 @@ void matrix_clear(Matrix matrix);
  * both matrices must match.
  */
 void matrix_copy(Matrix dst, Matrix src);
+void matrix_soft_copy(Matrix dst, Matrix src, float tau);
 
 /**
  * Sets all elements in the given `matrix` to the given `value`.
  */
-void matrix_fill(Matrix matrix, double value);
+void matrix_fill(Matrix matrix, float value);
 
 /**
  * Fills the given `matrix` with random values between `min` and `max`.
  */
-void matrix_randomize(Matrix matrix, double min, double max);
+void matrix_randomize(Matrix matrix, float min, float max);
 
 /**
  * Sums matrices `matrix1` and `matrix2´ element-wise and stores the result to
@@ -137,12 +204,12 @@ void matrix_subtract(Matrix dst, Matrix src);
 /**
  * Multiplies all elements in the given `matrix` with the given `value`.
  */
-void matrix_multiply(Matrix matrix, double value);
+void matrix_multiply(Matrix matrix, float value);
 
 /**
  * Divides all elements in the given `matrix` with the given `value`.
  */
-void matrix_divide(Matrix matrix, double value);
+void matrix_divide(Matrix matrix, float value);
 
 /**
  * Multiplies the elements in the `dst` matrix with the elements at the

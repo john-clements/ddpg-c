@@ -13,8 +13,8 @@ void deepc_random_init();
 int deepc_random_int(int min, int max);
 
 /**
- * \returns A random number of type double between ´min´ and ´max´.
+ * \returns A random number of type float between ´min´ and ´max´.
  */
-double deepc_random_double(double min, double max);
+float deepc_random_float(float min, float max);
 
 #endif

@@ -68,6 +68,8 @@ typedef struct Layer
      * back-propagation to the output of every neuron on this layer.
      */
     ActivationFunction activationDeriv;
+
+    int activation_id;
 } Layer;
 
 /**
@@ -117,6 +119,10 @@ typedef struct MLP
      * input batch. This matrix is returned by the `feedforward` function.
      */
     Matrix output;
+
+#ifdef OPEN_CL_EN
+    open_cl_ctx ocl;
+#endif
 } MLP;
 
 typedef struct MLP_MULTI
@@ -212,6 +218,7 @@ void mlp_initialize(MLP *mlp);
  * on MLP clones.
  */
 void mlp_copy(MLP *dst, MLP *src);
+void mlp_soft_copy(MLP *dst, MLP *src, float tau);
 void mlp_multi_copy(MLP_MULTI *dst, MLP_MULTI *src);
 
 /**
@@ -246,8 +253,8 @@ Matrix mlp_multi_feedforward(MLP_MULTI *mlp, Matrix x);
  * 
  * \returns The mean error computed by the loss function.
  */
-double mlp_backpropagate(MLP *mlp, Matrix y, int lossFunctionCode);
-double mlp_multi_backpropagate(MLP_MULTI *mlp, Matrix y, int lossFunctionCode);
+float mlp_backpropagate(MLP *mlp, Matrix y, int lossFunctionCode);
+float mlp_multi_backpropagate(MLP_MULTI *mlp, Matrix y, int lossFunctionCode);
 
 /**
  * Returns the error values at the input level. This is useful when performing
@@ -268,12 +275,12 @@ Matrix mlp_get_input_errors(MLP *mlp);
  *     weights[i] -= (learning rate) * gradWeights[i]
  *     biases[i] -= (learning rate) * gradBiases[i]
  */
-void mlp_sgd(MLP *mlp, double lr);
+void mlp_sgd(MLP *mlp, float lr);
 
 /**
  * Stohastic gradient descent with the additional gradient clipping mechanism.
  */
-void mlp_sgd_clip(MLP *mlp, double lr, double clipnorm);
+void mlp_sgd_clip(MLP *mlp, float lr, float clipnorm);
 
 /**
  * Loads weights and biases from a file.
